@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "204632288660",
+    "project_id": "salonhub-cb808",
+    "storage_bucket": "salonhub-cb808.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:204632288660:android:70d1287d34ee5a3dbff381",
+        "android_client_info": {
+          "package_name": "com.example.salon_hub"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "204632288660-hqbo2tdq3nfm4ljl4prhs9fm2nhuslh4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.salon_hub",
+            "certificate_hash": "1c48b980a2f57bead7bf3c64aa5c622e38fc8fba"
+          }
+        },
+        {
+          "client_id": "204632288660-ai1gilfr5tgq3tot62j4aupjv45gf5vm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOUVie8ADH8m1YqZ8Wnjjx0xik5QHuJeI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "204632288660-ai1gilfr5tgq3tot62j4aupjv45gf5vm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "204632288660-cnkrk85agj7jc574tgi48e0r4gdua626.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.salonHub"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
