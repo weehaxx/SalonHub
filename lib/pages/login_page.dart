@@ -29,16 +29,22 @@ class _LoginState extends State<Login> {
   void initState() {
     super.initState();
 
+    // Clear email error when typing starts
     _emailController.addListener(() {
-      setState(() {
-        _validateEmail();
-      });
+      if (_emailController.text.isNotEmpty) {
+        setState(() {
+          _emailError = '';
+        });
+      }
     });
 
+    // Clear password error when typing starts
     _passwordController.addListener(() {
-      setState(() {
-        _validatePassword();
-      });
+      if (_passwordController.text.isNotEmpty) {
+        setState(() {
+          _passwordError = '';
+        });
+      }
     });
   }
 
@@ -84,102 +90,25 @@ class _LoginState extends State<Login> {
     }
   }
 
-  // Function to sign in with Google
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _googleSignInError = ''; // Resetting Google sign-in error
-    });
-
-    try {
-      // Trigger Google Sign-In flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-
-      if (googleUser == null) {
-        // If the sign-in is canceled
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Obtain authentication details
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential for Firebase
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // Check if the user already exists in Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      if (userDoc.exists) {
-        String role = userDoc['role'];
-
-        // Navigate based on role
-        if (role == 'client') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SalonhomepageClient(),
-            ),
-          );
-        } else if (role == 'owner') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const FormOwner(),
-            ),
-          );
-        } else {
-          setState(() {
-            _loginError = 'Unknown role detected.';
-          });
-        }
-      } else {
-        // If user doesn't exist, show a message to register
-        setState(() {
-          _googleSignInError = 'No account found. Please register first.';
-          _isLoading = false;
-        });
-        await FirebaseAuth.instance.signOut(); // Sign out to allow sign up
-      }
-    } catch (e) {
-      setState(() {
-        _googleSignInError = 'Error occurred during Google sign-in: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
   Future<void> loginUser() async {
     setState(() {
       _isLoading = true;
-      _emailError = '';
-      _passwordError = '';
       _loginError = '';
     });
+
+    bool isEmailValid = _validateEmail();
+    bool isPasswordValid = _validatePassword();
+
+    if (!isEmailValid || !isPasswordValid) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
     try {
       String email = _emailController.text.trim();
       String password = _passwordController.text.trim();
-
-      if (!_validateEmail() || !_validatePassword()) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
 
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
@@ -311,7 +240,7 @@ class _LoginState extends State<Login> {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 120.0),
+                padding: const EdgeInsets.only(top: 80.0),
                 child: Image.asset(
                   "assets/images/logo.png",
                   width: 150.0,
@@ -337,7 +266,7 @@ class _LoginState extends State<Login> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
               Container(
                 width: 350,
                 padding: const EdgeInsets.all(20),
@@ -356,37 +285,28 @@ class _LoginState extends State<Login> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Welcome Back!',
-                      style: GoogleFonts.aboreto(
-                        textStyle: const TextStyle(
-                          fontSize: 25,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 20),
                     buildTextField(
-                        'Email', _emailController, false, _emailError),
+                      'Email',
+                      _emailController,
+                      false,
+                      _emailError,
+                      Icons.email, // Add email icon
+                    ),
                     const SizedBox(height: 10),
                     buildTextField(
-                        'Password', _passwordController, true, _passwordError),
+                      'Password',
+                      _passwordController,
+                      true,
+                      _passwordError,
+                      Icons.lock, // Add lock icon for password
+                    ),
                     const SizedBox(height: 20),
-                    if (_loginError.isNotEmpty) // Display Firebase login errors
+                    if (_loginError.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Text(
                           _loginError,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 12),
-                        ),
-                      ),
-                    if (_googleSignInError
-                        .isNotEmpty) // Google Sign-In error message
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          _googleSignInError,
                           style:
                               const TextStyle(color: Colors.red, fontSize: 12),
                         ),
@@ -399,10 +319,10 @@ class _LoginState extends State<Login> {
                               // Sign In Button
                               Container(
                                 width: 300,
-                                height: 40,
+                                height: 50,
                                 decoration: BoxDecoration(
                                   color: const Color(0xff355E3B),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.2),
@@ -423,41 +343,6 @@ class _LoginState extends State<Login> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // Google Sign-In Button
-                              GestureDetector(
-                                onTap: _signInWithGoogle,
-                                child: Container(
-                                  width: 300,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/google.png',
-                                        height: 18,
-                                        width: 18,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        'Sign in with Google',
-                                        style: GoogleFonts.aboreto(
-                                          textStyle: const TextStyle(
-                                            fontSize: 18,
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ),
@@ -499,44 +384,38 @@ class _LoginState extends State<Login> {
     );
   }
 
-  Widget buildTextField(String labelText, TextEditingController controller,
-      bool isPassword, String errorMessage) {
+  Widget buildTextField(String hintText, TextEditingController controller,
+      bool isPassword, String errorMessage, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 50,
+          height: 60, // Increased height for a modern look
           width: 300,
           child: TextField(
             controller: controller,
             obscureText: isPassword ? !_isPasswordVisible : false,
+            style: const TextStyle(fontSize: 16, color: Colors.black87),
             decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.grey[200], // Light grey background
+              prefixIcon: Icon(icon, color: Colors.black54), // Add icons here
+              hintText: hintText, // Use hintText instead of labelText
+              hintStyle: const TextStyle(fontSize: 16, color: Colors.black54),
+              contentPadding: const EdgeInsets.symmetric(vertical: 20),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Colors.black,
-                  width: 1.0,
-                ),
-              ),
-              labelText: labelText,
-              labelStyle: const TextStyle(
-                fontSize: 17,
-                color: Colors.black,
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Color.fromARGB(255, 128, 26, 245),
-                  width: 2.0,
-                ),
+                borderRadius: BorderRadius.circular(15), // Rounded corners
+                borderSide: BorderSide.none, // No border for a clean look
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
                 borderSide: const BorderSide(
-                  color: Colors.black,
-                  width: 1.0,
+                  color: Color(0xff355E3B), // Green border when focused
+                  width: 2.0,
                 ),
               ),
               suffixIcon: isPassword
@@ -545,6 +424,7 @@ class _LoginState extends State<Login> {
                         _isPasswordVisible
                             ? Icons.visibility
                             : Icons.visibility_off,
+                        color: Colors.black54,
                       ),
                       onPressed: () {
                         setState(() {
@@ -556,7 +436,7 @@ class _LoginState extends State<Login> {
             ),
           ),
         ),
-        if (errorMessage.isNotEmpty)
+        if (errorMessage.isNotEmpty) // Only show space if error exists
           Padding(
             padding: const EdgeInsets.only(top: 5),
             child: Text(

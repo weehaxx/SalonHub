@@ -194,20 +194,31 @@ class _BookingClientState extends State<BookingClient> {
                   bottom: 80), // Ensure enough space for the button
               child: Column(
                 children: [
+                  // Category buttons section
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         vertical: 8.0, horizontal: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildCategoryButton('All'),
-                        _buildCategoryButton('Hair'),
-                        _buildCategoryButton('Nail'),
-                        _buildCategoryButton('Spa'),
-                        _buildCategoryButton('Others'),
-                      ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: _scrollController,
+                      child: Row(
+                        children: [
+                          _buildCategoryButton('All'),
+                          const SizedBox(width: 10),
+                          _buildCategoryButton('Hair'),
+                          const SizedBox(width: 10),
+                          _buildCategoryButton('Nail'),
+                          const SizedBox(width: 10),
+                          _buildCategoryButton('Spa'),
+                          const SizedBox(width: 10),
+                          _buildCategoryButton('Others'),
+                          const SizedBox(width: 10),
+                          // Add more categories if needed
+                        ],
+                      ),
                     ),
                   ),
+                  // Select Services section
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
@@ -218,9 +229,10 @@ class _BookingClientState extends State<BookingClient> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       constraints: const BoxConstraints(
-                        maxHeight: 200, // Set a maximum height
+                        maxHeight:
+                            300, // Increased max height for better visibility
                         minHeight:
-                            100, // Set a minimum height to prevent collapse
+                            150, // Set a minimum height to prevent collapse
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,11 +246,12 @@ class _BookingClientState extends State<BookingClient> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 10),
                           if (filteredServices.isEmpty)
                             Expanded(
                               child: Center(
                                 child: Text(
-                                  'No available services',
+                                  'No available services for this category.',
                                   style: GoogleFonts.abel(
                                     textStyle: const TextStyle(
                                       fontSize: 16,
@@ -299,6 +312,7 @@ class _BookingClientState extends State<BookingClient> {
                       ),
                     ),
                   ),
+                  // Note for multiple services
                   if (_selectedServices.length > 1)
                     Padding(
                       padding: const EdgeInsets.only(
@@ -312,6 +326,7 @@ class _BookingClientState extends State<BookingClient> {
                       ),
                     ),
                   const SizedBox(height: 10),
+                  // Select Stylist section
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
@@ -361,6 +376,7 @@ class _BookingClientState extends State<BookingClient> {
                       ),
                     ),
                   ),
+                  // Calendar section
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
@@ -413,6 +429,7 @@ class _BookingClientState extends State<BookingClient> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // Select Time button
                   ElevatedButton(
                     onPressed: () async {
                       TimeOfDay? pickedTime = await showTimePicker(
@@ -430,16 +447,18 @@ class _BookingClientState extends State<BookingClient> {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 40, vertical: 15),
-                      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                      backgroundColor: const Color(0xffFFFFFF),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
+                        side: const BorderSide(
+                            color: Color(0xff355E3B), width: 2),
                       ),
                     ),
                     child: Text(
                       'Select Time: ${_selectedTime != null ? _selectedTime!.format(context) : "00:00"}', // Display "00:00" if not set
                       style: GoogleFonts.abel(
                         textStyle: const TextStyle(
-                            fontSize: 18, color: Color.fromARGB(255, 0, 0, 0)),
+                            fontSize: 18, color: Color(0xff000000)),
                       ),
                     ),
                   ),
@@ -447,8 +466,9 @@ class _BookingClientState extends State<BookingClient> {
               ),
             ),
           ),
+          // Confirm button positioned at the bottom
           Positioned(
-            bottom: 0,
+            bottom: 20,
             left: 20,
             right: 20,
             child: ElevatedButton(

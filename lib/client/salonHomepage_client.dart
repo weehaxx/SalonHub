@@ -44,13 +44,13 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
 
         // Check if the 'name' field is missing or empty
         if (_userName == null || _userName!.isEmpty) {
-          Future.delayed(Duration.zero, _promptForUserName);
+          Future.delayed(Duration.zero, _promptForUserName); // Prompt for name
         }
       }
     }
   }
 
-  // Prompt the user to enter their name if it's not set
+  // Method to prompt the user for their name if it's not set
   void _promptForUserName() {
     TextEditingController nameController = TextEditingController();
 
@@ -249,14 +249,13 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
       ),
       body: RefreshIndicator(
         onRefresh: _handleRefresh, // This will be called when user pulls down
-        child: Container(
-          color: const Color(0xfffbfcf8),
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Fixed AppBar layout
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Fixed AppBar layout
+            Container(
+              padding: const EdgeInsets.only(top: 30),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Builder(
@@ -281,31 +280,41 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Hello ${_userName ?? 'User'},',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 20,
-                    color: Colors.black,
+            ),
+            // Greeting section
+            Padding(
+              padding: const EdgeInsets.only(left: 15, bottom: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello ${_userName ?? 'User'},',
+                    style: GoogleFonts.abel(
+                      textStyle: const TextStyle(
+                        fontSize: 20,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                'Welcome to SALON HUB!',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                  const SizedBox(height: 5),
+                  Text(
+                    'Welcome to SALON HUB!',
+                    style: GoogleFonts.abel(
+                      textStyle: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
+            ),
+            // Search bar section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: SizedBox(
                 height: 40,
-                width: double.infinity,
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -351,8 +360,12 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
+            ),
+            const SizedBox(height: 20),
+            // Salon container section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: Text(
                 'Top Salons',
                 style: GoogleFonts.abel(
                   textStyle: const TextStyle(
@@ -362,9 +375,12 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              // Scrollable List of Salons
-              Expanded(
+            ),
+            const SizedBox(height: 10),
+            // Scrollable List of Salons
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
                 child: ListView.builder(
                   padding: EdgeInsets.zero, // No extra padding
                   itemCount: _salons.length,
@@ -386,8 +402,8 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                   },
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

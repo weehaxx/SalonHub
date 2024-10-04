@@ -33,6 +33,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
   String? _imageUrl;
   double _averageRating = 0.0;
   int _totalReviews = 0;
+  String _selectedCategory = 'All'; // Default category is 'All'
 
   @override
   void initState() {
@@ -101,6 +102,17 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
     await _fetchSalonData();
   }
 
+  // Function to filter services based on the selected category
+  List<Map<String, dynamic>> _filterServices() {
+    if (_selectedCategory == 'All') {
+      return widget.services;
+    }
+    return widget.services
+        .where((service) => service['category'] == _selectedCategory)
+        .toList();
+  }
+
+  // Function to toggle stylist's availability status
   void _toggleStylistStatus(String stylistId, String currentStatus) async {
     String newStatus =
         currentStatus == 'Available' ? 'Unavailable' : 'Available';
@@ -135,6 +147,23 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
         ),
       );
     }
+  }
+
+  // Function to display rating as stars
+  Widget _buildStarRating(double rating) {
+    int fullStars = rating.floor(); // Number of full stars
+    bool halfStar = (rating - fullStars) >= 0.5; // Check if there's a half star
+    return Row(
+      children: List.generate(5, (index) {
+        if (index < fullStars) {
+          return const Icon(Icons.star, color: Colors.yellow, size: 20);
+        } else if (index == fullStars && halfStar) {
+          return const Icon(Icons.star_half, color: Colors.yellow, size: 20);
+        } else {
+          return const Icon(Icons.star_border, color: Colors.yellow, size: 20);
+        }
+      }),
+    );
   }
 
   @override
@@ -216,25 +245,18 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.only(left: 10, right: 10),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment
+                      .spaceBetween, // Aligns time and rating evenly
                   children: [
-                    const SizedBox(width: 10),
+                    // Star Rating Section
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.yellow, size: 20),
-                        const SizedBox(width: 3),
-                        Text(
-                          _averageRating.toStringAsFixed(1),
-                          style: GoogleFonts.abel(
-                            textStyle: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
+                        _buildStarRating(_averageRating), // Display star rating
+                        const SizedBox(width: 10),
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -242,34 +264,40 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                               MaterialPageRoute(
                                 builder: (context) => ClientFeedbackPage(
                                   salonId: widget.salonId,
-                                  services: widget.services, // Passing services
+                                  services: widget.services,
                                 ),
                               ),
                             );
                           },
                           child: Text(
-                            '($_totalReviews) See reviews >',
+                            '$_totalReviews reviews',
                             style: GoogleFonts.abel(
                               textStyle: const TextStyle(
-                                color: Color.fromARGB(255, 155, 155, 155),
-                                fontSize: 16,
+                                fontSize: 16, // Matches the font size with time
+                                color: Color.fromARGB(255, 153, 152, 152),
+                                decoration: TextDecoration.underline,
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(width: 20),
-                    const Icon(Icons.schedule, color: Colors.black, size: 20),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${widget.openTime} - ${widget.closeTime}',
-                      style: GoogleFonts.abel(
-                        textStyle: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
+                    // Time Section
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule,
+                            color: Colors.black, size: 20),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${widget.openTime} - ${widget.closeTime}',
+                          style: GoogleFonts.abel(
+                            textStyle: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 16, // Same font size as the rating
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -284,6 +312,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                         onPressed: () {
                           setState(() {
                             _showServices = true;
+                            _selectedCategory = 'All'; // Show all services
                           });
                         },
                         icon: Icon(
@@ -363,17 +392,53 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                 ],
               ),
               const SizedBox(height: 10),
+              // Category buttons for filtering services
+              if (_showServices)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategoryButton('All'),
+                        const SizedBox(width: 10),
+                        _buildCategoryButton('Hair'),
+                        const SizedBox(width: 10),
+                        _buildCategoryButton('Nail'),
+                        const SizedBox(width: 10),
+                        _buildCategoryButton('Spa'),
+                        const SizedBox(width: 10),
+                        _buildCategoryButton('Others'),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_showServices)
-                      ...widget.services.map((service) {
+                      ..._filterServices().map((service) {
                         return _buildServiceItem(
                             service['name'], service['price']);
-                      })
-                    else
+                      }),
+                    // Check if no services are available for the selected category
+                    if (_showServices && _filterServices().isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: Text(
+                          'No services available for this category.',
+                          style: GoogleFonts.abel(
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!_showServices)
                       ...widget.stylists.map((stylist) {
                         return _buildStylistItem(
                           stylist['id'],
@@ -418,6 +483,36 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                   textStyle: const TextStyle(color: Colors.white),
                   fontSize: 20),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryButton(String category) {
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _selectedCategory = category;
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _selectedCategory == category
+            ? const Color(0xff355E3B)
+            : Colors.grey[300],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      child: Text(
+        category,
+        style: GoogleFonts.abel(
+          textStyle: TextStyle(
+            fontSize: 16,
+            color: _selectedCategory == category
+                ? Colors.white
+                : const Color(0xff355E3B),
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
