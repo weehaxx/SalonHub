@@ -99,16 +99,23 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
       Position position = await Geolocator.getCurrentPosition();
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
-      // Move the camera to the new location
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(currentLatLng, 14.0),
-      );
+      // Save the latitude and longitude to Firestore for the current user
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .update({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        });
 
-      // Pass the latitude and longitude back to form_owner.dart for saving
-      widget.onLocationSelected(position.latitude, position.longitude);
+        // Pass the latitude and longitude back to form_owner.dart for saving
+        widget.onLocationSelected(position.latitude, position.longitude);
 
-      // Update the marker on the map
-      _updateMapMarker(currentLatLng);
+        // Update the marker on the map
+        _updateMapMarker(currentLatLng);
+      }
     } catch (e) {
       print('Error submitting location: $e');
     }

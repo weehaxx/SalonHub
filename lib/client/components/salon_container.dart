@@ -1,5 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salonDetails_client.dart';
 
 class SalonContainer extends StatelessWidget {
@@ -14,6 +19,64 @@ class SalonContainer extends StatelessWidget {
     required this.salon,
   }) : super(key: key);
 
+  Future<void> _handleLocationPermission(BuildContext context) async {
+    if (await Permission.location.request().isGranted) {
+      try {
+        // Get user's current position
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        // Fetch salon location and name from Firestore
+        DocumentSnapshot salonData = await FirebaseFirestore.instance
+            .collection('salon')
+            .doc(
+                salonId) // Ensure this matches the UID used in `form_owner.dart`
+            .get();
+
+        if (salonData.exists) {
+          // Retrieve latitude, longitude, and salon name from Firestore
+          double? salonLatitude = salonData['latitude'];
+          double? salonLongitude = salonData['longitude'];
+          String salonName = salonData['salon_name'] ?? 'Unknown Salon';
+
+          if (salonLatitude != null && salonLongitude != null) {
+            // Navigate to FullMapPage with user's and salon's location
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FullMapPage(
+                  userLocation: LatLng(position.latitude, position.longitude),
+                  salonLocation: LatLng(salonLatitude, salonLongitude),
+                  salonName: salonName, // Pass the salon name here
+                ),
+              ),
+            );
+          } else {
+            print('Error: Latitude or longitude is missing for salon $salonId');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Salon location is incomplete')),
+            );
+          }
+        } else {
+          print('Error: No salon document found for ID $salonId');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Salon location not found')),
+          );
+        }
+      } catch (e) {
+        print('Error fetching salon data: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to retrieve salon location')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location permission is required to continue')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final salonName = salon['salon_name'] ?? 'Unknown Salon';
@@ -25,8 +88,7 @@ class SalonContainer extends StatelessWidget {
     final imageUrl = salon['image_url'];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16, vertical: 8), // Reduced vertical padding
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -102,8 +164,7 @@ class SalonContainer extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8), // Reduced vertical padding
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -159,6 +220,15 @@ class SalonContainer extends StatelessWidget {
                         ),
                         onPressed: () {
                           // Handle bookmark action
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.location_on,
+                          color: Color(0xff355E3B),
+                        ),
+                        onPressed: () {
+                          _handleLocationPermission(context);
                         },
                       ),
                       Flexible(
