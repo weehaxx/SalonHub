@@ -35,7 +35,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
   GoogleMapController? _mapController;
 
   // Marker set to show on the map
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -273,7 +273,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
           }
         },
         initialCameraPosition: CameraPosition(
-          target: _currentLocation ?? LatLng(0, 0), // Default position
+          target: _currentLocation ?? const LatLng(0, 0), // Default position
           zoom: 14,
         ),
         markers: _markers, // Use the updated markers set
