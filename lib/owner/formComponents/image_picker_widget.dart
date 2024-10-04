@@ -20,9 +20,14 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      widget.onImageSelected(File(pickedFile.path));
+    try {
+      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        widget.onImageSelected(File(pickedFile.path));
+      }
+    } catch (e) {
+      print('Failed to pick image: $e');
+      // Optionally, show a snackbar or alert dialog to inform the user
     }
   }
 

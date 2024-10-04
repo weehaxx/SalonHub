@@ -39,13 +39,16 @@ class _FormOwnerState extends State<FormOwner> {
   // State for Image Picker
   File? _selectedImage;
 
+  // Latitude and Longitude captured from SalonInformationForm
+  double? _latitude;
+  double? _longitude;
+
   // FirebaseAuth to get current user
   User? currentUser;
 
   @override
   void initState() {
     super.initState();
-    // Fetch the current logged-in user
     currentUser = FirebaseAuth.instance.currentUser;
   }
 
@@ -76,6 +79,13 @@ class _FormOwnerState extends State<FormOwner> {
                     addressController: _addressController,
                     openTimeController: _openTimeController,
                     closeTimeController: _closeTimeController,
+                    // Capture latitude and longitude here
+                    onLocationSelected: (latitude, longitude) {
+                      setState(() {
+                        _latitude = latitude;
+                        _longitude = longitude;
+                      });
+                    },
                   ),
                   ServicesForm(
                     key: UniqueKey(),
@@ -86,7 +96,7 @@ class _FormOwnerState extends State<FormOwner> {
                     employees: _employees,
                   ),
                   PaymentMethodForm(
-                    key: _paymentMethodFormKey, // Use GlobalKey here
+                    key: _paymentMethodFormKey,
                   ),
                 ],
               ),
@@ -140,7 +150,6 @@ class _FormOwnerState extends State<FormOwner> {
   }
 
   Future<void> _submitForm() async {
-    // Ensure the current user is available
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,7 +160,6 @@ class _FormOwnerState extends State<FormOwner> {
       return;
     }
 
-    // Access the state of the PaymentMethodForm to retrieve the payment method info
     final paymentMethodFormState = _paymentMethodFormKey.currentState;
 
     String? selectedPaymentMethod =
@@ -159,7 +167,6 @@ class _FormOwnerState extends State<FormOwner> {
     String? contactInfo = paymentMethodFormState?.contactInfo;
     File? qrCodeImage = paymentMethodFormState?.selectedQrCodeImage;
 
-    // Check if required fields are filled
     if (_salonNameController.text.isEmpty ||
         _salonOwnerController.text.isEmpty ||
         _addressController.text.isEmpty ||
@@ -167,7 +174,9 @@ class _FormOwnerState extends State<FormOwner> {
         _closeTimeController.text.isEmpty ||
         _selectedImage == null ||
         selectedPaymentMethod == null ||
-        contactInfo == null) {
+        contactInfo == null ||
+        _latitude == null ||
+        _longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill all required fields and select an image.'),
@@ -178,16 +187,16 @@ class _FormOwnerState extends State<FormOwner> {
     }
 
     try {
-      // Upload image to Firebase Storage and get the URL
+      // Upload image to Firebase Storage
       String imageUrl = await _uploadImage(_selectedImage!);
 
-      // Upload QR code image to Firebase Storage (if exists) and get the URL
+      // Upload QR code image to Firebase Storage (if exists)
       String? qrCodeUrl;
       if (qrCodeImage != null) {
         qrCodeUrl = await _uploadImage(qrCodeImage);
       }
 
-      // Prepare data to be sent to Firestore for the main salon document
+      // Prepare salon data
       Map<String, dynamic> salonData = {
         'salon_name': _salonNameController.text,
         'owner_name': _salonOwnerController.text,
@@ -195,31 +204,32 @@ class _FormOwnerState extends State<FormOwner> {
         'open_time': _openTimeController.text,
         'close_time': _closeTimeController.text,
         'image_url': imageUrl,
-        'owner_uid': currentUser!.uid, // Associate with logged-in user
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'owner_uid': currentUser!.uid,
       };
 
-      // Prepare payment method data
+      // Prepare payment data
       Map<String, dynamic> paymentData = {
         'payment_method': selectedPaymentMethod,
         'contact_info': contactInfo,
-        'qr_code_url': qrCodeUrl, // Set the QR code URL if exists
+        'qr_code_url': qrCodeUrl,
       };
 
-      // Save the main salon document to Firestore with user ID as the document ID
+      // Save the salon data to Firestore
       DocumentReference salonRef =
           FirebaseFirestore.instance.collection('salon').doc(currentUser!.uid);
-
       await salonRef.set(salonData);
 
-      // Save payment method as a subcollection under the main salon document
+      // Save payment method data
       await salonRef.collection('payment_methods').add(paymentData);
 
-      // Add the services subcollection
+      // Save services
       for (var service in _services) {
         await salonRef.collection('services').add(service);
       }
 
-      // Add the employees subcollection
+      // Save employees
       for (var employee in _employees) {
         await salonRef.collection('stylists').add(employee);
       }
@@ -232,10 +242,10 @@ class _FormOwnerState extends State<FormOwner> {
         ),
       );
 
-      // Clear form after submission
+      // Clear form
       _clearForm();
 
-      // Navigate to the Dashboard screen after success
+      // Navigate to dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
