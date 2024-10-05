@@ -55,24 +55,25 @@ class SalonContainer extends StatelessWidget {
           } else {
             print('Error: Latitude or longitude is missing for salon $salonId');
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Salon location is incomplete')),
+              const SnackBar(content: Text('Salon location is incomplete')),
             );
           }
         } else {
           print('Error: No salon document found for ID $salonId');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Salon location not found')),
+            const SnackBar(content: Text('Salon location not found')),
           );
         }
       } catch (e) {
         print('Error fetching salon data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to retrieve salon location')),
+          const SnackBar(content: Text('Failed to retrieve salon location')),
         );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Location permission is required to continue')),
+        const SnackBar(
+            content: Text('Location permission is required to continue')),
       );
     }
   }

@@ -41,6 +41,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
   void initState() {
     super.initState();
     _fetchSalonData();
+    _checkLocationPermission(); // Automatically check for location permission on load
   }
 
   // Async method to fetch salon data from Firestore
@@ -68,7 +69,22 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     }
   }
 
-  // Function to determine and display the current position (without saving to Firebase)
+  // Function to check location permission and fetch current location
+  Future<void> _checkLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      // If permission is granted, get the current position
+      _locateMyPosition();
+    }
+  }
+
+  // Function to automatically locate and display the current position
   Future<void> _locateMyPosition() async {
     try {
       Position position = await Geolocator.getCurrentPosition();
@@ -79,8 +95,9 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
         CameraUpdate.newLatLngZoom(currentLatLng, 14.0),
       );
 
-      // Update the marker on the map without saving to Firebase
+      // Update the marker on the map
       setState(() {
+        _currentLocation = currentLatLng;
         _markers.clear();
         _markers.add(Marker(
           markerId: const MarkerId('currentLocation'),
@@ -93,44 +110,28 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     }
   }
 
-  // Function to determine and display the current position and save it to Firebase
+  // Function to save the current location when clicking the "Next" button
   Future<void> _submitMyLocation() async {
     try {
-      Position position = await Geolocator.getCurrentPosition();
-      LatLng currentLatLng = LatLng(position.latitude, position.longitude);
+      if (_currentLocation != null) {
+        final User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .update({
+            'latitude': _currentLocation!.latitude,
+            'longitude': _currentLocation!.longitude,
+          });
 
-      // Save the latitude and longitude to Firestore for the current user
-      final User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUser.uid)
-            .update({
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-        });
-
-        // Pass the latitude and longitude back to form_owner.dart for saving
-        widget.onLocationSelected(position.latitude, position.longitude);
-
-        // Update the marker on the map
-        _updateMapMarker(currentLatLng);
+          // Pass the latitude and longitude back to form_owner.dart
+          widget.onLocationSelected(
+              _currentLocation!.latitude, _currentLocation!.longitude);
+        }
       }
     } catch (e) {
       print('Error submitting location: $e');
     }
-  }
-
-  // Function to update the marker on the map
-  void _updateMapMarker(LatLng position) {
-    setState(() {
-      _markers.clear(); // Remove previous markers
-      _markers.add(Marker(
-        markerId: const MarkerId('currentLocation'),
-        position: position,
-        infoWindow: const InfoWindow(title: 'My Location'),
-      ));
-    });
   }
 
   @override
@@ -172,36 +173,36 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
                         _buildTextField(
                             'Address', widget.addressController, false),
                         const SizedBox(height: 15),
-                        // Use Stack to overlay the button on top of the map
-                        Stack(
-                          children: [
-                            _buildGoogleMap(), // Add Google Map below the address
-                            Positioned(
-                              top: 10,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    _locateMyPosition(); // Locate current position without saving to Firebase
-                                  },
-                                  child: const Text('Locate My Position'),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        // Display the Google Map automatically without any button
+                        _buildGoogleMap(),
                         const SizedBox(height: 15),
                       ],
                     ),
                   ),
-                  // Centered "Submit My Location" button below the map
+                  // Centered "Submit My Location" button with custom design
                   Center(
                     child: ElevatedButton(
-                      onPressed: () {
-                        _submitMyLocation(); // Submit location and save to Firebase
-                      },
-                      child: const Text('Submit My Location'),
+                      onPressed: _submitMyLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            const Color(0xff355E3B), // Button color
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 50, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 5, // Shadow effect
+                      ),
+                      child: Text(
+                        'Submit My Location',
+                        style: GoogleFonts.poppins(
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

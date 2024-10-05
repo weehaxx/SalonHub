@@ -24,6 +24,7 @@ class _LoginState extends State<Login> {
   String _passwordError = '';
   String _loginError = '';
   String _googleSignInError = '';
+  String _resetPasswordMessage = ''; // For reset password feedback message
 
   @override
   void initState() {
@@ -88,6 +89,108 @@ class _LoginState extends State<Login> {
       });
       return true;
     }
+  }
+
+  // Function to reset password using buildTextField style
+  Future<void> _resetPasswordDialog(BuildContext context) async {
+    TextEditingController resetEmailController = TextEditingController();
+    String _resetEmailError = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Reset Password',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Please enter your registered email address. We will send you a link to reset your password. Make sure to check your inbox and follow the instructions provided.',
+                style: GoogleFonts.aBeeZee(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.justify,
+              ),
+              const SizedBox(height: 15),
+              buildTextField(
+                'Enter your email',
+                resetEmailController,
+                false,
+                _resetEmailError,
+                Icons.email,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: const Color(0xff355E3B),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              onPressed: () async {
+                String email = resetEmailController.text.trim();
+                if (email.isEmpty) {
+                  setState(() {
+                    _resetEmailError = 'Email cannot be empty';
+                  });
+                } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$')
+                    .hasMatch(email)) {
+                  setState(() {
+                    _resetEmailError = 'Please enter a valid email address';
+                  });
+                } else {
+                  try {
+                    await FirebaseAuth.instance
+                        .sendPasswordResetEmail(email: email);
+                    Navigator.of(context).pop();
+                    setState(() {
+                      _resetPasswordMessage =
+                          'Password reset link has been sent to your email. Please check your inbox.';
+                    });
+                  } on FirebaseAuthException catch (e) {
+                    if (e.code == 'user-not-found') {
+                      setState(() {
+                        _resetEmailError = 'No user found with this email.';
+                      });
+                    } else if (e.code == 'invalid-email') {
+                      setState(() {
+                        _resetEmailError = 'Invalid email format.';
+                      });
+                    } else {
+                      setState(() {
+                        _resetEmailError = 'An error occurred: ${e.message}';
+                      });
+                    }
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xff355E3B),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> loginUser() async {
@@ -346,6 +449,28 @@ class _LoginState extends State<Login> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () => _resetPasswordDialog(context),
+                                child: Text(
+                                  "Forgot Password?",
+                                  style: const TextStyle(
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              if (_resetPasswordMessage.isNotEmpty)
+                                Text(
+                                  _resetPasswordMessage,
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                             ],
                           ),
                     const SizedBox(height: 30),
