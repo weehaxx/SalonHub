@@ -136,7 +136,6 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _saveChanges,
-                child: const Text('Save Changes'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 32, 124, 46),
                   padding:
@@ -147,6 +146,7 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
                     color: Colors.white, // White text color
                   ),
                 ),
+                child: const Text('Save Changes'),
               ),
             ],
           ),
