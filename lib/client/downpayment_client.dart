@@ -80,7 +80,7 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Copied to clipboard')),
+      const SnackBar(content: Text('Copied to clipboard')),
     );
   }
 
@@ -158,7 +158,7 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
       ),
       builder: (BuildContext context) {
@@ -216,7 +216,7 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                 const SizedBox(height: 15),
                 if (_receiptImage != null)
                   Container(
-                    constraints: BoxConstraints(
+                    constraints: const BoxConstraints(
                       maxHeight: 300, // Maximum height for the image
                       maxWidth: 300, // Maximum width for the image
                     ),
@@ -227,9 +227,16 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                   ),
                 const SizedBox(height: 25),
                 ElevatedButton(
-                  onPressed: _isUploading
-                      ? null
-                      : _submitPayment, // Disable button if uploading
+                  onPressed: _isUploading ? null : _submitPayment,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff355E3B), // Custom color
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 50, vertical: 15),
+                    textStyle: const TextStyle(fontSize: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ), // Disable button if uploading
                   child: _isUploading
                       ? const CircularProgressIndicator(
                           valueColor:
@@ -239,15 +246,6 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                           'Submit Payment',
                           style: GoogleFonts.abel(color: Colors.white),
                         ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff355E3B), // Custom color
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 50, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 20),
               ],
@@ -418,8 +416,6 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                       Center(
                         child: ElevatedButton(
                           onPressed: _showPaymentPopup,
-                          child: const Text('Pay',
-                              style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xff355E3B),
                             padding: const EdgeInsets.symmetric(
@@ -427,6 +423,8 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                             textStyle: const TextStyle(fontSize: 16),
                             minimumSize: const Size(double.infinity, 50),
                           ),
+                          child: const Text('Pay',
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ),
                       const SizedBox(height: 10),

@@ -20,7 +20,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   final TextEditingController _stylistSpecializationController =
       TextEditingController();
   String _stylistStatus = 'Available';
-  Set<String> _stylistCategories = {}; // Track multiple categories
+  final Set<String> _stylistCategories = {}; // Track multiple categories
   bool _isFormVisible = false;
 
   final List<String> categories = [

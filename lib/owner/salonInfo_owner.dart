@@ -104,8 +104,8 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
                   _retrieveSalonInfo();
                 });
               },
-              child: const Icon(Icons.edit),
               backgroundColor: const Color(0xff355E3B),
+              child: const Icon(Icons.edit),
             )
           : null,
     );
