@@ -3,18 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart'; // For Clipboard API
 import 'package:image_picker/image_picker.dart'; // For picking images
+import 'package:firebase_storage/firebase_storage.dart'; // For Firebase Storage
 import 'dart:io'; // For handling file
 
 class DownpaymentClient extends StatefulWidget {
   final String salonId;
   final double totalPrice;
-  final String appointmentId; // Ensure the appointment ID is passed
+  final String appointmentId;
 
   const DownpaymentClient({
     super.key,
     required this.salonId,
     required this.totalPrice,
-    required this.appointmentId, // Ensure the appointment ID is passed
+    required this.appointmentId,
   });
 
   @override
@@ -27,6 +28,7 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
   late double downPaymentAmount;
   File? _receiptImage;
   final TextEditingController _referenceController = TextEditingController();
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -95,7 +97,20 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
 
   Future<void> _submitPayment() async {
     if (_receiptImage != null && _referenceController.text.isNotEmpty) {
+      setState(() {
+        _isUploading = true; // Set uploading state to true
+      });
+
       try {
+        // Upload the receipt image to Firebase Storage
+        String fileName = 'receipts/${widget.appointmentId}.jpg';
+        final storageRef = FirebaseStorage.instance.ref().child(fileName);
+        UploadTask uploadTask = storageRef.putFile(_receiptImage!);
+
+        TaskSnapshot storageSnapshot = await uploadTask;
+        String downloadUrl = await storageSnapshot.ref.getDownloadURL();
+
+        // Save the download URL and reference number to Firestore
         final appointmentRef = FirebaseFirestore.instance
             .collection('salon')
             .doc(widget.salonId)
@@ -109,9 +124,9 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
         }
 
         await appointmentRef.update({
-          'receipt_url': _receiptImage!
-              .path, // Store file path (change to Firebase URL in production)
+          'receipt_url': downloadUrl, // Store the download URL
           'reference_number': _referenceController.text,
+          'isPaid': true, // Mark as paid
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -123,6 +138,10 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to submit payment: $e')),
         );
+      } finally {
+        setState(() {
+          _isUploading = false; // Reset uploading state
+        });
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,11 +227,18 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
                   ),
                 const SizedBox(height: 25),
                 ElevatedButton(
-                  onPressed: _submitPayment,
-                  child: Text(
-                    'Submit Payment',
-                    style: GoogleFonts.abel(color: Colors.white),
-                  ),
+                  onPressed: _isUploading
+                      ? null
+                      : _submitPayment, // Disable button if uploading
+                  child: _isUploading
+                      ? const CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        )
+                      : Text(
+                          'Submit Payment',
+                          style: GoogleFonts.abel(color: Colors.white),
+                        ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff355E3B), // Custom color
                     padding: const EdgeInsets.symmetric(

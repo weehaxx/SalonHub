@@ -30,6 +30,109 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
     return 'Unknown User';
   }
 
+  // Function to show the receipt details in a popup
+  void _showReceiptDetails(String receiptUrl, String referenceNumber) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Payment Details',
+            style: GoogleFonts.abel(),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    _showFullImage(receiptUrl); // View image in full screen
+                  },
+                  child: receiptUrl.isNotEmpty
+                      ? Image.network(
+                          receiptUrl,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Text('Failed to load receipt image');
+                          },
+                        )
+                      : const Text('No receipt image available'),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Reference Number: $referenceNumber',
+                  style: GoogleFonts.abel(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Function to show image in full screen
+  void _showFullImage(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).pop(); // Close the full-screen image
+            },
+            child: Center(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(child: Text('Failed to load image'));
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Function to mark the appointment as paid
+  Future<void> _markAsPaid(String salonId, String appointmentId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({'isPaid': true});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Marked as Paid')),
+      );
+    } catch (e) {
+      print('Error marking as paid: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to mark as paid')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,6 +176,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
               final appointment = appointmentDoc.data() as Map<String, dynamic>;
               final userId = appointment['userId'] ?? '';
               final appointmentId = appointmentDoc.id;
+              final salonId =
+                  _user?.uid ?? ''; // Assuming salonId is the user UID
 
               return FutureBuilder<String>(
                 future: _fetchUserName(userId),
@@ -113,7 +218,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                         children: [
                           Text(
                             servicesText, // Display all services
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -121,7 +226,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                           const SizedBox(height: 5),
                           Text(
                             '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontSize: 14,
                               color: Colors.grey[700],
                             ),
@@ -129,7 +234,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                           const SizedBox(height: 5),
                           Text(
                             'Set by: $userName',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontSize: 14,
                               color: Colors.grey[600],
                               fontStyle: FontStyle.italic,
@@ -137,32 +242,62 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                           ),
                           const SizedBox(height: 5),
                           Text(
+                            'Total Price: Php ${appointment['totalPrice']}',
+                            style: GoogleFonts.abel(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
                             'Payment Status: $paymentStatus',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontSize: 14,
                               color: isPaid ? Colors.green : Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 15),
-                          ElevatedButton(
-                            onPressed: () {
-                              // Implement logic for accepting payments, marking as paid, etc.
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  isPaid ? Colors.grey : Colors.blue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          if (isPaid)
+                            ElevatedButton(
+                              onPressed: () {
+                                _showReceiptDetails(
+                                  appointment['receipt_url'] ?? '',
+                                  appointment['reference_number'] ?? 'N/A',
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                'See Details',
+                                style: GoogleFonts.abel(
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          else
+                            ElevatedButton(
+                              onPressed: () {
+                                _markAsPaid(salonId, appointmentId);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                'Mark as Paid',
+                                style: GoogleFonts.abel(
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                            child: Text(
-                              isPaid ? 'Mark as Unpaid' : 'Mark as Paid',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
