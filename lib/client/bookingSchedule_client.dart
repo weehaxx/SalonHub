@@ -25,7 +25,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
 
       // Loop through each salon to find the appointments for the logged-in user
       for (var salonDoc in salonSnapshot.docs) {
-        String salonId = salonDoc.id;
+        String salonId = salonDoc.id; // Extract salonId here
 
         // Fetch appointments from the nested appointments collection within the salon document
         QuerySnapshot appointmentSnapshot = await _firestore
@@ -38,12 +38,15 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
         for (var appointmentDoc in appointmentSnapshot.docs) {
           var data = appointmentDoc.data() as Map<String, dynamic>;
 
-          // Add each appointment to the list with its details
+          // Add each appointment to the list with its details, including the salonId and appointmentId
           appointments.add({
+            'appointmentId':
+                appointmentDoc.id, // Store the appointment document ID
+            'salonId': salonId, // Include salonId in each appointment
             'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
             'stylistName': data['stylist'] ?? 'Unknown Stylist',
-            'service': data['service'] ?? 'No service provided',
-            'price': data['price'] ?? 'N/A',
+            'service': data['services'][0] ?? 'No service provided',
+            'price': data['totalPrice']?.toString() ?? 'N/A',
             'date': data['date'] ?? 'No date provided',
             'time': data['time'] ?? 'No time provided',
             'status': data['status'] ?? 'No status provided',
@@ -95,6 +98,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
     }
   }
 
+  // Helper method to show appointment dialog
   void _showAppointmentDialog(Map<String, dynamic> appointment) {
     showDialog(
       context: context,
@@ -133,7 +137,19 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                 child:
                     Text('Pay', style: GoogleFonts.abel(color: Colors.white)),
                 onPressed: () {
-                  // Handle payment logic here
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DownpaymentClient(
+                        salonId: appointment['salonId'],
+                        totalPrice:
+                            double.tryParse(appointment['price'].toString()) ??
+                                0.0,
+                        appointmentId: appointment[
+                            'appointmentId'], // Pass the appointmentId
+                      ),
+                    ),
+                  );
                 },
               )
             else
@@ -310,10 +326,20 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                                   onPressed: appointment['isAccepted']
                                       ? () {
                                           Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const DownpaymentClient()));
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  DownpaymentClient(
+                                                salonId: appointment['salonId'],
+                                                totalPrice: double.tryParse(
+                                                        appointment['price']
+                                                            .toString()) ??
+                                                    0.0,
+                                                appointmentId: appointment[
+                                                    'appointmentId'], // Pass appointmentId here
+                                              ),
+                                            ),
+                                          );
                                         }
                                       : null, // Enable only if accepted
                                   style: ElevatedButton.styleFrom(

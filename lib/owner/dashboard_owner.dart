@@ -8,7 +8,7 @@ import 'package:salon_hub/owner/pendingappointment.dart';
 import 'package:salon_hub/owner/salonInfo_owner.dart';
 import 'package:salon_hub/pages/login_page.dart';
 import 'package:salon_hub/owner/service_add.dart';
-import 'package:salon_hub/owner/logs_page.dart'; // Add this import
+// Add this import
 
 class DashboardOwner extends StatefulWidget {
   const DashboardOwner({super.key});
@@ -212,28 +212,6 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const EmployeesOwner(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.list,
-                  color: Colors.green[700]), // Add this new ListTile for Logs
-              title: Text(
-                'Logs',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const LogsPage(), // Navigate to the LogsPage
                   ),
                 );
               },

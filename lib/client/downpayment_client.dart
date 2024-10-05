@@ -1,143 +1,412 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart'; // For Clipboard API
+import 'package:image_picker/image_picker.dart'; // For picking images
+import 'dart:io'; // For handling file
 
 class DownpaymentClient extends StatefulWidget {
-  const DownpaymentClient({super.key});
+  final String salonId;
+  final double totalPrice;
+  final String appointmentId; // Ensure the appointment ID is passed
+
+  const DownpaymentClient({
+    super.key,
+    required this.salonId,
+    required this.totalPrice,
+    required this.appointmentId, // Ensure the appointment ID is passed
+  });
 
   @override
   State<DownpaymentClient> createState() => _DownpaymentClientState();
 }
 
 class _DownpaymentClientState extends State<DownpaymentClient> {
-  String? _selectedPaymentMethod; // Track the selected payment method
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _paymentMethods = [];
+  late double downPaymentAmount;
+  File? _receiptImage;
+  final TextEditingController _referenceController = TextEditingController();
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Select Payment Method',
-          style: GoogleFonts.poppins(color: Colors.white),
-        ),
-        backgroundColor: const Color(0xff355E3B),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Choose your payment method:',
-              style: GoogleFonts.poppins(
-                textStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildPaymentMethodTile('Credit Card', Icons.credit_card),
-            _buildPaymentMethodTile('Debit Card', Icons.account_balance_wallet),
-            _buildPaymentMethodTile('PayPal', Icons.account_balance),
-            _buildPaymentMethodTile('Cash on Delivery', Icons.money),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton(
-          onPressed: _selectedPaymentMethod != null
-              ? () {
-                  _showConfirmationDialog(context);
-                }
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xff355E3B),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-          ),
-          child: Text(
-            'Proceed',
-            style: GoogleFonts.poppins(
-              textStyle: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ),
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    downPaymentAmount = widget.totalPrice * 0.5;
+    _fetchPaymentMethods();
   }
 
-  // Build payment method tile
-  Widget _buildPaymentMethodTile(String method, IconData icon) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xff355E3B)),
-      title: Text(
-        method,
-        style: GoogleFonts.poppins(
-          textStyle: const TextStyle(fontSize: 16),
-        ),
-      ),
-      trailing: Radio<String>(
-        value: method,
-        groupValue: _selectedPaymentMethod,
-        onChanged: (String? value) {
-          setState(() {
-            _selectedPaymentMethod = value;
-          });
-        },
-        activeColor: const Color(0xff355E3B),
-      ),
-      onTap: () {
+  Future<void> _fetchPaymentMethods() async {
+    try {
+      QuerySnapshot paymentMethodsSnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('payment_methods')
+          .get();
+
+      if (paymentMethodsSnapshot.docs.isNotEmpty) {
+        List<Map<String, dynamic>> methods =
+            paymentMethodsSnapshot.docs.map((doc) {
+          final data =
+              doc.data() as Map<String, dynamic>?; // Ensure null safety
+          return {
+            'payment_method':
+                data?['payment_method']?.toString() ?? 'Unknown Method',
+            'contact_info':
+                data?['contact_info']?.toString() ?? 'No Contact Info',
+            'qr_code_url':
+                data?['qr_code_url']?.toString() ?? '', // Empty if null
+          };
+        }).toList();
+
         setState(() {
-          _selectedPaymentMethod = method;
+          _paymentMethods = methods;
+          _isLoading = false;
         });
-      },
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Copied to clipboard')),
     );
   }
 
-  // Show confirmation dialog
-  void _showConfirmationDialog(BuildContext context) {
-    showDialog(
+  Future<void> _pickReceiptImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _receiptImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _submitPayment() async {
+    if (_receiptImage != null && _referenceController.text.isNotEmpty) {
+      try {
+        final appointmentRef = FirebaseFirestore.instance
+            .collection('salon')
+            .doc(widget.salonId)
+            .collection('appointments')
+            .doc(widget.appointmentId);
+
+        // Check if the appointment document exists
+        final snapshot = await appointmentRef.get();
+        if (!snapshot.exists) {
+          throw 'Appointment not found';
+        }
+
+        await appointmentRef.update({
+          'receipt_url': _receiptImage!
+              .path, // Store file path (change to Firebase URL in production)
+          'reference_number': _referenceController.text,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment submitted successfully!')),
+        );
+        Navigator.pop(context); // Close the modal
+      } catch (e) {
+        print('Error submitting payment: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit payment: $e')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Please upload a receipt and enter a reference number.')),
+      );
+    }
+  }
+
+  // Show the popup for uploading receipt and entering reference number
+  void _showPaymentPopup() {
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Payment Method'),
-          content: Text(
-            'You selected: $_selectedPaymentMethod.\nDo you want to proceed with this payment method?',
-            style: GoogleFonts.poppins(),
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Upload Receipt & Reference',
+                  style: GoogleFonts.abel(
+                    textStyle: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xff355E3B),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: _referenceController,
+                  decoration: InputDecoration(
+                    labelText: 'Reference Number',
+                    labelStyle: GoogleFonts.abel(color: Colors.grey[600]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey[400]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.green[700]!),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                ElevatedButton.icon(
+                  onPressed: _pickReceiptImage,
+                  icon: const Icon(Icons.upload),
+                  label: Text(
+                    'Upload Receipt',
+                    style: GoogleFonts.abel(),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                if (_receiptImage != null)
+                  Container(
+                    constraints: BoxConstraints(
+                      maxHeight: 300, // Maximum height for the image
+                      maxWidth: 300, // Maximum width for the image
+                    ),
+                    child: Image.file(
+                      _receiptImage!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                const SizedBox(height: 25),
+                ElevatedButton(
+                  onPressed: _submitPayment,
+                  child: Text(
+                    'Submit Payment',
+                    style: GoogleFonts.abel(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff355E3B), // Custom color
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 50, vertical: 15),
+                    textStyle: const TextStyle(fontSize: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-                // Add further actions, such as navigating to a payment gateway
-                _proceedWithPayment();
-              },
-              child: const Text('Proceed'),
-            ),
-          ],
         );
       },
     );
   }
 
-  // Function to proceed with payment logic
-  void _proceedWithPayment() {
-    // Add your payment processing logic here
-    // For now, it just shows a snackbar as a placeholder
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Proceeding with $_selectedPaymentMethod',
-          style: GoogleFonts.poppins(),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        iconTheme: const IconThemeData(
+          color: Colors.white,
         ),
+        title: Text(
+          'Downpayment',
+          style: GoogleFonts.abel(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: const Color(0xff355E3B),
+        centerTitle: true,
+        elevation: 2,
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _paymentMethods.isEmpty
+              ? const Center(
+                  child: Text('No payment methods available'),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _paymentMethods.length,
+                          itemBuilder: (context, index) {
+                            final paymentMethod = _paymentMethods[index];
+                            final String paymentMethodStr =
+                                paymentMethod['payment_method'] ??
+                                    'Unknown Method';
+                            final String contactInfo =
+                                paymentMethod['contact_info'] ??
+                                    'No Contact Info';
+                            final String qrCodeUrl =
+                                paymentMethod['qr_code_url'] ?? '';
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 16.0),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              elevation: 5,
+                              shadowColor: Colors.grey.withOpacity(0.2),
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    paymentMethodStr.toLowerCase() == 'gcash'
+                                        ? Center(
+                                            child: Image.asset(
+                                              'assets/images/gcash.png',
+                                              height: 40,
+                                            ),
+                                          )
+                                        : Text(
+                                            paymentMethodStr,
+                                            style: GoogleFonts.abel(
+                                              textStyle: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xff2E2E2E),
+                                              ),
+                                            ),
+                                          ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Recipient #: $contactInfo',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.abel(
+                                            textStyle: const TextStyle(
+                                              fontSize: 18,
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy,
+                                              color: Colors.grey),
+                                          onPressed: () =>
+                                              _copyToClipboard(contactInfo),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    if (qrCodeUrl.isNotEmpty)
+                                      Center(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Image.network(
+                                            qrCodeUrl,
+                                            height: 200,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return const Center(
+                                                child: Text(
+                                                    'Failed to load QR code'),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      const Center(
+                                        child: Text(
+                                          'No QR code available',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Total Price: Php ${widget.totalPrice.toStringAsFixed(2)}',
+                                      style: GoogleFonts.abel(
+                                        textStyle: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xff2E2E2E),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Downpayment (50%): Php ${downPaymentAmount.toStringAsFixed(2)}',
+                                      style: GoogleFonts.abel(
+                                        textStyle: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xff2E2E2E),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: _showPaymentPopup,
+                          child: const Text('Pay',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff355E3B),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 50, vertical: 15),
+                            textStyle: const TextStyle(fontSize: 16),
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                ),
     );
   }
 }
