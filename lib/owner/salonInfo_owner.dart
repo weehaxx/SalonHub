@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:salon_hub/owner/edit_salon_info.dart';
 
 class SaloninfoOwner extends StatefulWidget {
   const SaloninfoOwner({super.key});
@@ -87,6 +88,26 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
                     style: TextStyle(fontSize: 18),
                   ),
                 ),
+      floatingActionButton: salonData != null
+          ? FloatingActionButton(
+              onPressed: () {
+                // Navigate to the edit screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditSalonInfo(
+                      salonData: salonData!,
+                    ),
+                  ),
+                ).then((value) {
+                  // Refresh the salon data when coming back from the edit screen
+                  _retrieveSalonInfo();
+                });
+              },
+              child: const Icon(Icons.edit),
+              backgroundColor: const Color(0xff355E3B),
+            )
+          : null,
     );
   }
 
