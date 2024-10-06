@@ -33,7 +33,6 @@ class _PendingappointmentState extends State<Pendingappointment> {
   // Function to update the appointment status and set isPaid to false
   Future<void> _acceptAppointment(String salonId, String appointmentId) async {
     try {
-      // Update the appointment with status Accepted and isPaid set to false
       await FirebaseFirestore.instance
           .collection('salon')
           .doc(salonId)
@@ -41,27 +40,32 @@ class _PendingappointmentState extends State<Pendingappointment> {
           .doc(appointmentId)
           .update({
         'status': 'Accepted',
-        'isPaid': false, // Set isPaid as false
+        'isPaid': false,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Appointment Accepted and marked as unpaid.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        // Ensure the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Appointment Accepted and marked as unpaid.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       print('Error accepting appointment: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to accept appointment.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        // Ensure the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to accept appointment.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // Function to update the appointment status (e.g., Decline)
   Future<void> _updateAppointmentStatus(
       String salonId, String appointmentId, String status) async {
     try {
@@ -72,23 +76,29 @@ class _PendingappointmentState extends State<Pendingappointment> {
           .doc(appointmentId)
           .update({'status': status});
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Appointment $status successfully.'),
-          backgroundColor: status == 'Accepted' ? Colors.green : Colors.red,
-        ),
-      );
+      if (mounted) {
+        // Ensure the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Appointment $status successfully.'),
+            backgroundColor: status == 'Accepted' ? Colors.green : Colors.red,
+          ),
+        );
 
-      // Redirect to home page after status update
-      Navigator.of(context).popUntil((route) => route.isFirst);
+        // Redirect to home page after status update
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
       print('Error updating appointment status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update appointment status.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        // Ensure the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update appointment status.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

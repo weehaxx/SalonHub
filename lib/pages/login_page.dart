@@ -23,7 +23,7 @@ class _LoginState extends State<Login> {
   String _emailError = '';
   String _passwordError = '';
   String _loginError = '';
-  String _googleSignInError = '';
+  final String _googleSignInError = '';
   String _resetPasswordMessage = ''; // For reset password feedback message
 
   @override
@@ -94,7 +94,7 @@ class _LoginState extends State<Login> {
   // Function to reset password using buildTextField style
   Future<void> _resetPasswordDialog(BuildContext context) async {
     TextEditingController resetEmailController = TextEditingController();
-    String _resetEmailError = '';
+    String resetEmailError = '';
 
     showDialog(
       context: context,
@@ -123,7 +123,7 @@ class _LoginState extends State<Login> {
                 'Enter your email',
                 resetEmailController,
                 false,
-                _resetEmailError,
+                resetEmailError,
                 Icons.email,
               ),
             ],
@@ -143,12 +143,12 @@ class _LoginState extends State<Login> {
                 String email = resetEmailController.text.trim();
                 if (email.isEmpty) {
                   setState(() {
-                    _resetEmailError = 'Email cannot be empty';
+                    resetEmailError = 'Email cannot be empty';
                   });
                 } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$')
                     .hasMatch(email)) {
                   setState(() {
-                    _resetEmailError = 'Please enter a valid email address';
+                    resetEmailError = 'Please enter a valid email address';
                   });
                 } else {
                   try {
@@ -162,15 +162,15 @@ class _LoginState extends State<Login> {
                   } on FirebaseAuthException catch (e) {
                     if (e.code == 'user-not-found') {
                       setState(() {
-                        _resetEmailError = 'No user found with this email.';
+                        resetEmailError = 'No user found with this email.';
                       });
                     } else if (e.code == 'invalid-email') {
                       setState(() {
-                        _resetEmailError = 'Invalid email format.';
+                        resetEmailError = 'Invalid email format.';
                       });
                     } else {
                       setState(() {
-                        _resetEmailError = 'An error occurred: ${e.message}';
+                        resetEmailError = 'An error occurred: ${e.message}';
                       });
                     }
                   }
@@ -452,9 +452,9 @@ class _LoginState extends State<Login> {
                               const SizedBox(height: 10),
                               GestureDetector(
                                 onTap: () => _resetPasswordDialog(context),
-                                child: Text(
+                                child: const Text(
                                   "Forgot Password?",
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     decoration: TextDecoration.underline,
                                     color: Colors.black,
                                     fontSize: 14,

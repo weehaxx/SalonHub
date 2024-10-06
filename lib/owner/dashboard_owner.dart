@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // For date formatting
 import 'package:salon_hub/owner/accepted_appointments.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
+import 'package:salon_hub/owner/paid_appointments.dart';
 import 'package:salon_hub/owner/pendingappointment.dart';
 import 'package:salon_hub/owner/salonInfo_owner.dart';
-import 'package:salon_hub/pages/login_page.dart';
+import 'package:salon_hub/owner/todays_appointment.dart';
 import 'package:salon_hub/owner/service_add.dart';
-// Add this import
+import 'package:salon_hub/pages/login_page.dart';
 
 class DashboardOwner extends StatefulWidget {
   const DashboardOwner({super.key});
@@ -21,6 +23,10 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   final User? _user = FirebaseAuth.instance.currentUser;
   int pendingAppointmentsCount = 0;
   int acceptedAppointmentsCount = 0;
+  int paidAppointmentsTodayCount =
+      0; // Add this variable for paid appointments count
+  int todaysAppointmentsCount =
+      0; // Add this variable for today's appointments count
   String salonName = "Salon Name";
   String ownerName = "Owner Name";
 
@@ -29,6 +35,8 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     super.initState();
     fetchAppointmentsCount();
     fetchSalonDetails();
+    fetchPaidAppointmentsTodayCount(); // Fetch paid appointments count
+    fetchTodaysAppointmentsCount(); // Fetch today's appointments count
   }
 
   Future<void> fetchSalonDetails() async {
@@ -74,6 +82,52 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     }
   }
 
+  // Fetch the count of paid appointments for today
+  Future<void> fetchPaidAppointmentsTodayCount() async {
+    try {
+      String todayDate =
+          DateFormat('yyyy-MM-dd').format(DateTime.now()); // Get today's date
+      final paidQuerySnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('appointments')
+          .where('status', isEqualTo: 'Accepted')
+          .where('isPaid', isEqualTo: true) // Filter for paid appointments
+          .where('date',
+              isEqualTo: todayDate) // Filter for today's appointments
+          .get();
+
+      setState(() {
+        paidAppointmentsTodayCount =
+            paidQuerySnapshot.docs.length; // Update the count
+      });
+    } catch (e) {
+      print('Error fetching paid appointments for today: $e');
+    }
+  }
+
+  // Fetch the count of today's appointments (both paid and unpaid)
+  Future<void> fetchTodaysAppointmentsCount() async {
+    try {
+      String todayDate =
+          DateFormat('yyyy-MM-dd').format(DateTime.now()); // Get today's date
+      final todaysQuerySnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('appointments')
+          .where('date',
+              isEqualTo: todayDate) // Filter for today's appointments
+          .get();
+
+      setState(() {
+        todaysAppointmentsCount =
+            todaysQuerySnapshot.docs.length; // Update the count
+      });
+    } catch (e) {
+      print('Error fetching today\'s appointments: $e');
+    }
+  }
+
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacement(
@@ -82,6 +136,14 @@ class _DashboardOwnerState extends State<DashboardOwner> {
         builder: (context) => const Login(),
       ),
     );
+  }
+
+  Future<void> _refreshDashboard() async {
+    // Refresh the dashboard by re-fetching the appointments count and salon details
+    await fetchAppointmentsCount();
+    await fetchSalonDetails();
+    await fetchPaidAppointmentsTodayCount(); // Refresh the paid appointments count
+    await fetchTodaysAppointmentsCount(); // Refresh today's appointments count
   }
 
   @override
@@ -233,78 +295,108 @@ class _DashboardOwnerState extends State<DashboardOwner> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                salonName,
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+      body: RefreshIndicator(
+        onRefresh: _refreshDashboard,
+        child: SingleChildScrollView(
+          physics:
+              const AlwaysScrollableScrollPhysics(), // Allow scroll even if content is less than full height
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  salonName,
+                  style: GoogleFonts.abel(
+                    textStyle: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _buildDashboardItem(
-                '0',
-                "Today's Appointments",
-                const Color(0xff355E3B),
-                const Color(0xFFF9F9F9),
-                const Icon(Icons.calendar_today,
-                    size: 40, color: Color(0xFF4A90E2)),
-                onTap: () {},
-              ),
-              const SizedBox(height: 20),
-              _buildDashboardItem(
-                acceptedAppointmentsCount.toString(),
-                "Confirmed",
-                const Color(0xff355E3B),
-                const Color(0xFFF9F9F9),
-                const Icon(Icons.check_circle,
-                    size: 40, color: Color(0xFF50E3C2)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const Acceptedappointment()),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              _buildDashboardItem(
-                pendingAppointmentsCount.toString(),
-                "Requests",
-                const Color(0xff355E3B),
-                const Color(0xFFF9F9F9),
-                const Icon(Icons.pending, size: 40, color: Color(0xFFF5A623)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const Pendingappointment(),
-                    ),
-                  ).then((shouldRefresh) {
-                    if (shouldRefresh == true) {
-                      fetchAppointmentsCount();
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 20),
-              _buildDashboardItem(
-                '0',
-                "Cancelled",
-                const Color(0xff355E3B),
-                const Color(0xFFF9F9F9),
-                const Icon(Icons.cancel, size: 40, color: Color(0xFFD0021B)),
-                onTap: () {},
-              ),
-            ],
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  todaysAppointmentsCount
+                      .toString(), // Display today's appointments count
+                  "Today's Appointments",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.calendar_today,
+                      size: 40, color: Color(0xFF4A90E2)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TodaysAppointmentsPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  paidAppointmentsTodayCount
+                      .toString(), // Display the paid appointments count
+                  "Paid Appointments for Today",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.money, size: 40, color: Colors.green),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PaidAppointmentsPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  acceptedAppointmentsCount.toString(),
+                  "Confirmed",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.check_circle,
+                      size: 40, color: Color(0xFF50E3C2)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const Acceptedappointment()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  pendingAppointmentsCount.toString(),
+                  "Requests",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.pending, size: 40, color: Color(0xFFF5A623)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const Pendingappointment(),
+                      ),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        fetchAppointmentsCount();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  '0',
+                  "Cancelled",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.cancel, size: 40, color: Color(0xFFD0021B)),
+                  onTap: () {},
+                ),
+              ],
+            ),
           ),
         ),
       ),

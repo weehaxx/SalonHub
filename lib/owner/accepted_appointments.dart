@@ -12,6 +12,7 @@ class Acceptedappointment extends StatefulWidget {
 
 class _AcceptedappointmentState extends State<Acceptedappointment> {
   final User? _user = FirebaseAuth.instance.currentUser;
+  String _selectedFilter = 'Paid'; // Default filter to 'Paid'
 
   // Function to fetch user name based on userId
   Future<String> _fetchUserName(String userId) async {
@@ -138,175 +139,218 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Accepted Appointments',
+          '',
           style: TextStyle(color: Colors.black),
         ),
         backgroundColor: const Color(0xffFaF9F6),
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('salon')
-            .doc(_user?.uid)
-            .collection('appointments')
-            .where('status', isEqualTo: 'Accepted')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text(
-                'No accepted appointments found.',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(15.0),
+            child: Text(
+              'Accepted Appointments',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-            );
-          }
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15.0),
+            child: DropdownButton<String>(
+              value: _selectedFilter,
+              items: const [
+                DropdownMenuItem(
+                  value: 'Paid',
+                  child: Text('Paid'),
+                ),
+                DropdownMenuItem(
+                  value: 'Not Paid',
+                  child: Text('Not Paid'),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedFilter = value!;
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('salon')
+                  .doc(_user?.uid)
+                  .collection('appointments')
+                  .where('status', isEqualTo: 'Accepted')
+                  .where('isPaid', isEqualTo: _selectedFilter == 'Paid')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          final appointments = snapshot.data!.docs;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: appointments.length,
-            itemBuilder: (context, index) {
-              final appointmentDoc = appointments[index];
-              final appointment = appointmentDoc.data() as Map<String, dynamic>;
-              final userId = appointment['userId'] ?? '';
-              final appointmentId = appointmentDoc.id;
-              final salonId =
-                  _user?.uid ?? ''; // Assuming salonId is the user UID
-
-              return FutureBuilder<String>(
-                future: _fetchUserName(userId),
-                builder: (context, userSnapshot) {
-                  if (userSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Card(
-                        child: ListTile(
-                          title: Text('Loading user...'),
-                        ),
-                      ),
-                    );
-                  }
-
-                  final userName = userSnapshot.data ?? 'Unknown User';
-
-                  // Handling multiple services
-                  List<dynamic> services = appointment['services'] ?? [];
-                  String servicesText = services.isNotEmpty
-                      ? services.join(', ') // Join services if more than one
-                      : 'No service';
-
-                  // Check payment status
-                  bool isPaid = appointment['isPaid'] ?? false;
-                  String paymentStatus = isPaid ? 'Paid' : 'Not Paid';
-
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    elevation: 5,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            servicesText, // Display all services
-                            style: GoogleFonts.abel(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
-                            style: GoogleFonts.abel(
-                              fontSize: 14,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Set by: $userName',
-                            style: GoogleFonts.abel(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Total Price: Php ${appointment['totalPrice']}',
-                            style: GoogleFonts.abel(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Payment Status: $paymentStatus',
-                            style: GoogleFonts.abel(
-                              fontSize: 14,
-                              color: isPaid ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-                          if (isPaid)
-                            ElevatedButton(
-                              onPressed: () {
-                                _showReceiptDetails(
-                                  appointment['receipt_url'] ?? '',
-                                  appointment['reference_number'] ?? 'N/A',
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: Text(
-                                'See Details',
-                                style: GoogleFonts.abel(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            )
-                          else
-                            ElevatedButton(
-                              onPressed: () {
-                                _markAsPaid(salonId, appointmentId);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: Text(
-                                'Mark as Paid',
-                                style: GoogleFonts.abel(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No appointments found.',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                   );
-                },
-              );
-            },
-          );
-        },
+                }
+
+                final appointments = snapshot.data!.docs;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(10),
+                  itemCount: appointments.length,
+                  itemBuilder: (context, index) {
+                    final appointmentDoc = appointments[index];
+                    final appointment =
+                        appointmentDoc.data() as Map<String, dynamic>;
+                    final userId = appointment['userId'] ?? '';
+                    final appointmentId = appointmentDoc.id;
+                    final salonId =
+                        _user?.uid ?? ''; // Assuming salonId is the user UID
+
+                    return FutureBuilder<String>(
+                      future: _fetchUserName(userId),
+                      builder: (context, userSnapshot) {
+                        if (userSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Card(
+                              child: ListTile(
+                                title: Text('Loading user...'),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final userName = userSnapshot.data ?? 'Unknown User';
+
+                        // Handling multiple services
+                        List<dynamic> services = appointment['services'] ?? [];
+                        String servicesText = services.isNotEmpty
+                            ? services
+                                .join(', ') // Join services if more than one
+                            : 'No service';
+
+                        // Check payment status
+                        bool isPaid = appointment['isPaid'] ?? false;
+                        String paymentStatus = isPaid ? 'Paid' : 'Not Paid';
+
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 5,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(15.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  servicesText, // Display all services
+                                  style: GoogleFonts.abel(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
+                                  style: GoogleFonts.abel(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Set by: $userName',
+                                  style: GoogleFonts.abel(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Total Price: Php ${appointment['totalPrice']}',
+                                  style: GoogleFonts.abel(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Payment Status: $paymentStatus',
+                                  style: GoogleFonts.abel(
+                                    fontSize: 14,
+                                    color: isPaid ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 15),
+                                if (isPaid)
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      _showReceiptDetails(
+                                        appointment['receipt_url'] ?? '',
+                                        appointment['reference_number'] ??
+                                            'N/A',
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'See Details',
+                                      style: GoogleFonts.abel(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      _markAsPaid(salonId, appointmentId);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Mark as Paid',
+                                      style: GoogleFonts.abel(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
