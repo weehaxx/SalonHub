@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/bookingSchedule_client.dart';
+import 'package:salon_hub/client/payment_history.dart';
 
 class CustomDrawer extends StatelessWidget {
   final String? userName;
@@ -35,8 +36,7 @@ class CustomDrawer extends StatelessWidget {
             currentAccountPicture: CircleAvatar(
               backgroundImage: profileImageUrl != null
                   ? NetworkImage(profileImageUrl!)
-                  : const AssetImage('assets/images/default_user.png')
-                      as ImageProvider,
+                  : const AssetImage('assets/images/logo.png') as ImageProvider,
             ),
             decoration: const BoxDecoration(
               color: Color(0xff355E3B),
@@ -53,6 +53,21 @@ class CustomDrawer extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const BookingscheduleClient(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: Text(
+              'Payment History',
+              style: GoogleFonts.abel(),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PaymentHistory(),
                 ),
               );
             },

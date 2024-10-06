@@ -216,15 +216,6 @@ class SalonContainer extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(
-                          Icons.bookmark_border,
-                          color: Color(0xff355E3B),
-                        ),
-                        onPressed: () {
-                          // Handle bookmark action
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(
                           Icons.location_on,
                           color: Color(0xff355E3B),
                         ),

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -123,10 +124,30 @@ class _DownpaymentClientState extends State<DownpaymentClient> {
           throw 'Appointment not found';
         }
 
+        // Update the appointment with payment details and mark as paid
         await appointmentRef.update({
           'receipt_url': downloadUrl, // Store the download URL
           'reference_number': _referenceController.text,
           'isPaid': true, // Mark as paid
+          'payment_date': FieldValue.serverTimestamp(), // Add payment timestamp
+        });
+
+        // Add payment history to the user's subcollection
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        final userPaymentRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('payment_history')
+            .doc(); // Generate a new document ID
+
+        await userPaymentRef.set({
+          'salonId': widget.salonId,
+          'appointmentId': widget.appointmentId,
+          'totalPaid': widget.totalPrice,
+          'downPayment': downPaymentAmount,
+          'paymentDate': FieldValue.serverTimestamp(), // Store the payment date
+          'receipt_url': downloadUrl,
+          'reference_number': _referenceController.text,
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
