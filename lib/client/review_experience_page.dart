@@ -15,7 +15,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
   final TextEditingController _reviewController = TextEditingController();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   String _currentUserName = 'Anonymous';
-  Map<String, dynamic>? _appointmentToReview; // Store the appointment to review
+  DocumentSnapshot? _appointmentToReview; // Store the appointment to review
 
   @override
   void initState() {
@@ -47,7 +47,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
     if (_currentUser != null) {
       try {
         QuerySnapshot appointmentsSnapshot = await FirebaseFirestore.instance
-            .collection('users')
+            .collection('salon')
             .doc(_currentUser!.uid)
             .collection('appointments')
             .where('status',
@@ -58,8 +58,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
 
         if (appointmentsSnapshot.docs.isNotEmpty) {
           setState(() {
-            _appointmentToReview =
-                appointmentsSnapshot.docs.first.data() as Map<String, dynamic>;
+            _appointmentToReview = appointmentsSnapshot.docs.first;
           });
         }
       } catch (e) {
@@ -84,26 +83,23 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
       'review': _reviewController.text,
       'userId': _currentUser?.uid,
       'userName': _currentUserName,
-      'appointmentId': _appointmentToReview?['id'], // Link to the appointment
+      'stylist': _appointmentToReview?.get('stylist'),
+      'service':
+          _appointmentToReview?.get('services')[0], // Get the first service
       'timestamp': FieldValue.serverTimestamp(),
     };
 
     try {
-      // Save the review
+      // Save the review under the salon's reviews collection
       await FirebaseFirestore.instance
-          .collection('users')
+          .collection('salon')
           .doc(_currentUser?.uid)
           .collection('reviews')
           .add(reviewData);
 
       // Mark the appointment as reviewed
       if (_appointmentToReview != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUser?.uid)
-            .collection('appointments')
-            .doc(_appointmentToReview?['id'])
-            .update({'isReviewed': true});
+        await _appointmentToReview!.reference.update({'isReviewed': true});
       }
 
       _showSnackbar('Review submitted successfully!', isSuccess: true);
@@ -147,7 +143,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Rate your experience with ${_appointmentToReview?['stylist'] ?? 'the stylist'}',
+                    'Rate your experience with ${_appointmentToReview?.get('stylist') ?? 'the stylist'}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
