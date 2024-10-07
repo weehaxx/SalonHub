@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:salon_hub/client/downpayment_client.dart';
+import 'package:salon_hub/client/flagging_system.dart';
 import 'package:salon_hub/client/reschedule.dart';
+import 'package:salon_hub/main.dart'; // Import the main entry point for redirecting to the login screen
 import 'package:intl/intl.dart';
 
 class BookingscheduleClient extends StatefulWidget {
@@ -16,6 +18,8 @@ class BookingscheduleClient extends StatefulWidget {
 class _BookingscheduleClientState extends State<BookingscheduleClient> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final User? _user = FirebaseAuth.instance.currentUser;
+  final FlaggingSystem _flaggingSystem =
+      FlaggingSystem(); // Instance of FlaggingSystem
 
   // List to store appointments
   List<Map<String, dynamic>> _appointments = [];
@@ -333,6 +337,9 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
               if (confirmed == true) {
                 _cancelAppointment(
                     appointment['salonId'], appointment['appointmentId']);
+                if (appointment['isAccepted'] && !appointment['isPaid']) {
+                  _flaggingSystem.flagAndBlockUser(context, _user!.uid);
+                }
               }
             },
       style: ElevatedButton.styleFrom(

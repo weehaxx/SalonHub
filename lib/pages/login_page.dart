@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:salon_hub/client/salonHomepage_client.dart';
 import 'package:salon_hub/owner/form_owner.dart';
 import 'package:salon_hub/pages/signup_page.dart';
@@ -23,14 +22,11 @@ class _LoginState extends State<Login> {
   String _emailError = '';
   String _passwordError = '';
   String _loginError = '';
-  final String _googleSignInError = '';
-  String _resetPasswordMessage = ''; // For reset password feedback message
+  String _resetPasswordMessage = '';
 
   @override
   void initState() {
     super.initState();
-
-    // Clear email error when typing starts
     _emailController.addListener(() {
       if (_emailController.text.isNotEmpty) {
         setState(() {
@@ -38,8 +34,6 @@ class _LoginState extends State<Login> {
         });
       }
     });
-
-    // Clear password error when typing starts
     _passwordController.addListener(() {
       if (_passwordController.text.isNotEmpty) {
         setState(() {
@@ -49,49 +43,52 @@ class _LoginState extends State<Login> {
     });
   }
 
-  // Function to validate email
-  bool _validateEmail() {
-    String email = _emailController.text.trim();
-    if (email.isEmpty) {
-      setState(() {
-        _emailError = 'Email cannot be empty';
-      });
-      return false;
-    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
-      setState(() {
-        _emailError = 'Please enter a valid email';
-      });
-      return false;
-    } else {
-      setState(() {
-        _emailError = ''; // Clear error when input is valid
-      });
-      return true;
+  // Function to check if user is blocked
+  Future<void> _checkIfUserBlocked(String uid) async {
+    DocumentSnapshot flagDoc = await FirebaseFirestore.instance
+        .collection('user_flags')
+        .doc(uid)
+        .get();
+
+    if (flagDoc.exists) {
+      int cancelCount = flagDoc['cancelCount'] ?? 0;
+      if (cancelCount >= 3) {
+        _showBlockedAccountDialog();
+        return;
+      }
     }
+    _navigateBasedOnRole(uid);
   }
 
-  // Function to validate password
-  bool _validatePassword() {
-    String password = _passwordController.text.trim();
-    if (password.isEmpty) {
-      setState(() {
-        _passwordError = 'Password cannot be empty';
-      });
-      return false;
-    } else if (password.length < 8) {
-      setState(() {
-        _passwordError = 'Password must be at least 8 characters long';
-      });
-      return false;
-    } else {
-      setState(() {
-        _passwordError = ''; // Clear error when input is valid
-      });
-      return true;
-    }
+  // Function to show the blocked account dialog
+  void _showBlockedAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account Blocked'),
+        content: const Text(
+          'Your account has been blocked due to multiple appointment cancellations.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Log out the user and redirect to the login page
+              FirebaseAuth.instance.signOut();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const Login(),
+                ),
+              );
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
-  // Function to reset password using buildTextField style
   Future<void> _resetPasswordDialog(BuildContext context) async {
     TextEditingController resetEmailController = TextEditingController();
     String resetEmailError = '';
@@ -193,6 +190,46 @@ class _LoginState extends State<Login> {
     );
   }
 
+  bool _validateEmail() {
+    String email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _emailError = 'Email cannot be empty';
+      });
+      return false;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _emailError = 'Please enter a valid email';
+      });
+      return false;
+    } else {
+      setState(() {
+        _emailError = ''; // Clear error when input is valid
+      });
+      return true;
+    }
+  }
+
+  bool _validatePassword() {
+    String password = _passwordController.text.trim();
+    if (password.isEmpty) {
+      setState(() {
+        _passwordError = 'Password cannot be empty';
+      });
+      return false;
+    } else if (password.length < 8) {
+      setState(() {
+        _passwordError = 'Password must be at least 8 characters long';
+      });
+      return false;
+    } else {
+      setState(() {
+        _passwordError = ''; // Clear error when input is valid
+      });
+      return true;
+    }
+  }
+
   Future<void> loginUser() async {
     setState(() {
       _isLoading = true;
@@ -216,35 +253,8 @@ class _LoginState extends State<Login> {
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      if (userDoc.exists) {
-        String role = userDoc['role'];
-
-        // Navigate based on role
-        if (role == 'client') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SalonhomepageClient(),
-            ),
-          );
-        } else if (role == 'owner') {
-          // Check if the owner has filled the salon details
-          await _checkSalonDetails(userCredential.user!.uid);
-        } else {
-          setState(() {
-            _loginError = 'Unknown role detected.';
-          });
-        }
-      } else {
-        setState(() {
-          _loginError = 'User data not found in Firestore.';
-        });
-      }
+      String uid = userCredential.user!.uid;
+      await _checkIfUserBlocked(uid);
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'user-not-found':
@@ -284,21 +294,44 @@ class _LoginState extends State<Login> {
     }
   }
 
+  Future<void> _navigateBasedOnRole(String uid) async {
+    DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    if (userDoc.exists) {
+      String role = userDoc['role'];
+
+      // Navigate based on role
+      if (role == 'client') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SalonhomepageClient(),
+          ),
+        );
+      } else if (role == 'owner') {
+        await _checkSalonDetails(uid);
+      } else {
+        setState(() {
+          _loginError = 'Unknown role detected.';
+        });
+      }
+    } else {
+      setState(() {
+        _loginError = 'User data not found in Firestore.';
+      });
+    }
+  }
+
   Future<void> _checkSalonDetails(String uid) async {
     try {
-      // Log the UID for debugging
-      print('Checking salon details for user: $uid');
-
-      // Query the 'salon' collection where 'uid' field equals the user's UID
       QuerySnapshot salonQuery = await FirebaseFirestore.instance
           .collection('salon')
           .where('owner_uid', isEqualTo: uid)
-          .limit(1) // Limit to 1 result for efficiency
+          .limit(1)
           .get();
 
       if (salonQuery.docs.isNotEmpty) {
-        // If salon details exist, redirect to the dashboard
-        print('Salon details exist for user: $uid. Redirecting to dashboard.');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -306,9 +339,6 @@ class _LoginState extends State<Login> {
           ),
         );
       } else {
-        // If salon details do not exist, redirect to the form page
-        print(
-            'No salon details found for user: $uid. Redirecting to FormOwner.');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -320,7 +350,6 @@ class _LoginState extends State<Login> {
       setState(() {
         _loginError = 'Error checking salon details: $e';
       });
-      print('Error checking salon details: $e');
     }
   }
 
@@ -394,7 +423,7 @@ class _LoginState extends State<Login> {
                       _emailController,
                       false,
                       _emailError,
-                      Icons.email, // Add email icon
+                      Icons.email,
                     ),
                     const SizedBox(height: 10),
                     buildTextField(
@@ -402,7 +431,7 @@ class _LoginState extends State<Login> {
                       _passwordController,
                       true,
                       _passwordError,
-                      Icons.lock, // Add lock icon for password
+                      Icons.lock,
                     ),
                     const SizedBox(height: 20),
                     if (_loginError.isNotEmpty)
@@ -417,88 +446,9 @@ class _LoginState extends State<Login> {
                     const SizedBox(height: 20),
                     _isLoading
                         ? const CircularProgressIndicator()
-                        : Column(
-                            children: [
-                              // Sign In Button
-                              Container(
-                                width: 300,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xff355E3B),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      spreadRadius: 2,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: TextButton(
-                                  onPressed: loginUser,
-                                  child: Text(
-                                    'Sign In',
-                                    style: GoogleFonts.aboreto(
-                                      textStyle: const TextStyle(
-                                        fontSize: 18,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              GestureDetector(
-                                onTap: () => _resetPasswordDialog(context),
-                                child: const Text(
-                                  "Forgot Password?",
-                                  style: TextStyle(
-                                    decoration: TextDecoration.underline,
-                                    color: Colors.black,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              if (_resetPasswordMessage.isNotEmpty)
-                                Text(
-                                  _resetPasswordMessage,
-                                  style: const TextStyle(
-                                    color: Colors.green,
-                                    fontSize: 12,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                            ],
-                          ),
+                        : _buildLoginButtons(),
                     const SizedBox(height: 30),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Don\'t have an account? ',
-                          style: GoogleFonts.aBeeZee(),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const SignupPage()),
-                            );
-                          },
-                          child: const Text(
-                            "Sign Up",
-                            style: TextStyle(
-                              decoration: TextDecoration.underline,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildSignUpOption(),
                   ],
                 ),
               ),
@@ -509,13 +459,98 @@ class _LoginState extends State<Login> {
     );
   }
 
+  Widget _buildLoginButtons() {
+    return Column(
+      children: [
+        Container(
+          width: 300,
+          height: 50,
+          decoration: BoxDecoration(
+            color: const Color(0xff355E3B),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                spreadRadius: 2,
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: TextButton(
+            onPressed: loginUser,
+            child: Text(
+              'Sign In',
+              style: GoogleFonts.aboreto(
+                textStyle: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: () => _resetPasswordDialog(context),
+          child: const Text(
+            "Forgot Password?",
+            style: TextStyle(
+              decoration: TextDecoration.underline,
+              color: Colors.black,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_resetPasswordMessage.isNotEmpty)
+          Text(
+            _resetPasswordMessage,
+            style: const TextStyle(
+              color: Colors.green,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSignUpOption() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Don\'t have an account? ',
+          style: GoogleFonts.aBeeZee(),
+        ),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SignupPage()),
+            );
+          },
+          child: const Text(
+            "Sign Up",
+            style: TextStyle(
+              decoration: TextDecoration.underline,
+              color: Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget buildTextField(String hintText, TextEditingController controller,
       bool isPassword, String errorMessage, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 60, // Increased height for a modern look
+          height: 60,
           width: 300,
           child: TextField(
             controller: controller,
@@ -523,14 +558,14 @@ class _LoginState extends State<Login> {
             style: const TextStyle(fontSize: 16, color: Colors.black87),
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.grey[200], // Light grey background
-              prefixIcon: Icon(icon, color: Colors.black54), // Add icons here
-              hintText: hintText, // Use hintText instead of labelText
+              fillColor: Colors.grey[200],
+              prefixIcon: Icon(icon, color: Colors.black54),
+              hintText: hintText,
               hintStyle: const TextStyle(fontSize: 16, color: Colors.black54),
               contentPadding: const EdgeInsets.symmetric(vertical: 20),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15), // Rounded corners
-                borderSide: BorderSide.none, // No border for a clean look
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -539,7 +574,7 @@ class _LoginState extends State<Login> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
                 borderSide: const BorderSide(
-                  color: Color(0xff355E3B), // Green border when focused
+                  color: Color(0xff355E3B),
                   width: 2.0,
                 ),
               ),
@@ -561,7 +596,7 @@ class _LoginState extends State<Login> {
             ),
           ),
         ),
-        if (errorMessage.isNotEmpty) // Only show space if error exists
+        if (errorMessage.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 5),
             child: Text(

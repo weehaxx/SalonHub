@@ -114,8 +114,10 @@ class _RescheduleState extends State<Reschedule> {
               .collection('appointments')
               .doc(widget.appointmentId);
 
-          // Update the appointment with the new date, time, note, and status
+          // Update the appointment with the new date, time, note, status, and previous date/time
           await appointmentRef.update({
+            'previousDate': widget.initialDate, // Store the previous date
+            'previousTime': widget.initialTime, // Store the previous time
             'date': formattedDate,
             'time': formattedTime,
             'note': _noteController.text, // Add the note if any
