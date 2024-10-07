@@ -7,8 +7,9 @@ import 'package:salon_hub/owner/accepted_appointments.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
 import 'package:salon_hub/owner/paid_appointments.dart';
 import 'package:salon_hub/owner/pendingappointment.dart';
+import 'package:salon_hub/owner/reschedule_page.dart'; // Import the reschedule page
+import 'package:salon_hub/owner/cancellation_page.dart'; // Import the cancellation page
 import 'package:salon_hub/owner/salonInfo_owner.dart';
-import 'package:salon_hub/owner/todays_appointment.dart';
 import 'package:salon_hub/owner/service_add.dart';
 import 'package:salon_hub/pages/login_page.dart';
 
@@ -23,10 +24,9 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   final User? _user = FirebaseAuth.instance.currentUser;
   int pendingAppointmentsCount = 0;
   int acceptedAppointmentsCount = 0;
-  int paidAppointmentsTodayCount =
-      0; // Add this variable for paid appointments count
-  int todaysAppointmentsCount =
-      0; // Add this variable for today's appointments count
+  int paidAppointmentsTodayCount = 0;
+  int rescheduleCount = 0;
+  int cancellationCount = 0; // Add this variable for cancellation count
   String salonName = "Salon Name";
   String ownerName = "Owner Name";
 
@@ -35,8 +35,9 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     super.initState();
     fetchAppointmentsCount();
     fetchSalonDetails();
-    fetchPaidAppointmentsTodayCount(); // Fetch paid appointments count
-    fetchTodaysAppointmentsCount(); // Fetch today's appointments count
+    fetchPaidAppointmentsTodayCount();
+    fetchRescheduleCount();
+    fetchCancellationCount(); // Fetch cancellation count
   }
 
   Future<void> fetchSalonDetails() async {
@@ -106,25 +107,39 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     }
   }
 
-  // Fetch the count of today's appointments (both paid and unpaid)
-  Future<void> fetchTodaysAppointmentsCount() async {
+  // Fetch the count of reschedule requests
+  Future<void> fetchRescheduleCount() async {
     try {
-      String todayDate =
-          DateFormat('yyyy-MM-dd').format(DateTime.now()); // Get today's date
-      final todaysQuerySnapshot = await FirebaseFirestore.instance
+      final rescheduleQuerySnapshot = await FirebaseFirestore.instance
           .collection('salon')
           .doc(_user?.uid)
           .collection('appointments')
-          .where('date',
-              isEqualTo: todayDate) // Filter for today's appointments
+          .where('status', isEqualTo: 'Rescheduled')
           .get();
 
       setState(() {
-        todaysAppointmentsCount =
-            todaysQuerySnapshot.docs.length; // Update the count
+        rescheduleCount = rescheduleQuerySnapshot.docs.length;
       });
     } catch (e) {
-      print('Error fetching today\'s appointments: $e');
+      print('Error fetching reschedule appointments: $e');
+    }
+  }
+
+  // Fetch the count of cancellation requests
+  Future<void> fetchCancellationCount() async {
+    try {
+      final cancellationQuerySnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('appointments')
+          .where('status', isEqualTo: 'Canceled')
+          .get();
+
+      setState(() {
+        cancellationCount = cancellationQuerySnapshot.docs.length;
+      });
+    } catch (e) {
+      print('Error fetching cancellation appointments: $e');
     }
   }
 
@@ -139,11 +154,11 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   }
 
   Future<void> _refreshDashboard() async {
-    // Refresh the dashboard by re-fetching the appointments count and salon details
     await fetchAppointmentsCount();
     await fetchSalonDetails();
-    await fetchPaidAppointmentsTodayCount(); // Refresh the paid appointments count
-    await fetchTodaysAppointmentsCount(); // Refresh today's appointments count
+    await fetchPaidAppointmentsTodayCount();
+    await fetchRescheduleCount();
+    await fetchCancellationCount(); // Refresh the cancellation count
   }
 
   @override
@@ -298,8 +313,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
       body: RefreshIndicator(
         onRefresh: _refreshDashboard,
         child: SingleChildScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Allow scroll even if content is less than full height
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -317,26 +331,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                 ),
                 const SizedBox(height: 20),
                 _buildDashboardItem(
-                  todaysAppointmentsCount
-                      .toString(), // Display today's appointments count
-                  "Today's Appointments",
-                  const Color(0xff355E3B),
-                  const Color(0xFFF9F9F9),
-                  const Icon(Icons.calendar_today,
-                      size: 40, color: Color(0xFF4A90E2)),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TodaysAppointmentsPage(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                _buildDashboardItem(
-                  paidAppointmentsTodayCount
-                      .toString(), // Display the paid appointments count
+                  paidAppointmentsTodayCount.toString(),
                   "Paid Appointments for Today",
                   const Color(0xff355E3B),
                   const Color(0xFFF9F9F9),
@@ -388,12 +383,44 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                 ),
                 const SizedBox(height: 20),
                 _buildDashboardItem(
-                  '0',
+                  rescheduleCount.toString(),
+                  "Reschedule",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.schedule,
+                      size: 40, color: Color(0xFF1E90FF)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReschedulePage(),
+                      ),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        fetchRescheduleCount();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  cancellationCount.toString(),
                   "Cancelled",
                   const Color(0xff355E3B),
                   const Color(0xFFF9F9F9),
                   const Icon(Icons.cancel, size: 40, color: Color(0xFFD0021B)),
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CancellationPage(),
+                      ),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        fetchCancellationCount();
+                      }
+                    });
+                  },
                 ),
               ],
             ),

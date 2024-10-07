@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
+import 'package:salon_hub/client/review_experience_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
 
 class SalonhomepageClient extends StatefulWidget {
@@ -246,12 +247,22 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
         userEmail: _userEmail,
         profileImageUrl: _profileImageUrl,
         onLogout: _logout,
+        onReviewExperience: () {
+          // This should now work correctly
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ReviewExperiencePage(),
+            ),
+          );
+        },
       ),
       body: RefreshIndicator(
-        onRefresh: _handleRefresh, // This will be called when user pulls down
+        onRefresh: _handleRefresh,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // AppBar layout and the rest of your code..
             // Fixed AppBar layout
             Container(
               padding: const EdgeInsets.only(top: 30),

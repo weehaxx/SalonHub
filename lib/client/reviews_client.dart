@@ -36,7 +36,7 @@ class _ReviewsClientState extends State<ReviewsClient> {
       try {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(_currentUser.uid)
+            .doc(_currentUser!.uid)
             .get();
 
         if (userDoc.exists && userDoc['name'] != null) {
@@ -56,7 +56,7 @@ class _ReviewsClientState extends State<ReviewsClient> {
           .collection('salon')
           .doc(widget.salonId)
           .collection('reviews')
-          .where('userId', isEqualTo: _currentUser.uid)
+          .where('userId', isEqualTo: _currentUser!.uid)
           .get();
 
       if (reviewSnapshot.docs.isNotEmpty) {
@@ -67,69 +67,6 @@ class _ReviewsClientState extends State<ReviewsClient> {
           _selectedService = existingReview['service'];
         });
       }
-    }
-  }
-
-  void _submitReview() async {
-    if (_rating == 0) {
-      _showSnackbar('Please select a rating before submitting your review.');
-      return;
-    }
-
-    if (_reviewController.text.isEmpty) {
-      _showSnackbar('Please write a review before submitting.');
-      return;
-    }
-
-    if (_selectedService == null || _selectedService!.isEmpty) {
-      _showSnackbar('Please select a service before submitting.');
-      return;
-    }
-
-    final reviewData = {
-      'rating': _rating,
-      'review': _reviewController.text,
-      'userId': _currentUser?.uid,
-      'userName': _currentUserName,
-      'userEmail': _currentUser?.email ?? 'N/A',
-      'service': _selectedService, // Store selected service
-      'timestamp': FieldValue.serverTimestamp(),
-    };
-
-    try {
-      QuerySnapshot existingReviewSnapshot = await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(widget.salonId)
-          .collection('reviews')
-          .where('userId', isEqualTo: _currentUser?.uid)
-          .get();
-
-      if (existingReviewSnapshot.docs.isNotEmpty) {
-        var existingReviewDocId = existingReviewSnapshot.docs.first.id;
-        await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(widget.salonId)
-            .collection('reviews')
-            .doc(existingReviewDocId)
-            .update(reviewData);
-      } else {
-        await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(widget.salonId)
-            .collection('reviews')
-            .add(reviewData);
-      }
-
-      _showSnackbar('Review submitted successfully!', isSuccess: true);
-      setState(() {
-        _rating = 0;
-        _reviewController.clear();
-        _selectedService = null;
-      });
-
-      Navigator.pop(context); // Go back after submitting the review
-    } catch (e) {
-      _showSnackbar('Failed to submit review: $e');
     }
   }
 
@@ -240,30 +177,6 @@ class _ReviewsClientState extends State<ReviewsClient> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xff355E3B)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitReview,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff355E3B),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Submit Review',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
                 ),
               ),
             ),

@@ -15,6 +15,61 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
   final User? _user = FirebaseAuth.instance.currentUser;
   String todayDate = DateFormat('yyyy-MM-dd')
       .format(DateTime.now()); // Get today's date in 'yyyy-MM-dd' format
+  late Stream<QuerySnapshot> _paidAppointmentsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _paidAppointmentsStream = _getPaidAppointmentsStream();
+  }
+
+  // Function to fetch the stream of paid appointments for today
+  Stream<QuerySnapshot> _getPaidAppointmentsStream() {
+    return FirebaseFirestore.instance
+        .collection('salon')
+        .doc(_user?.uid)
+        .collection('appointments')
+        .where('status', isEqualTo: 'Accepted') // Filter by Accepted status
+        .where('isPaid', isEqualTo: true) // Filter by Paid appointments
+        .where('date', isEqualTo: todayDate) // Filter by today's date
+        .snapshots();
+  }
+
+  // Function to mark an appointment as done
+  Future<void> _markAppointmentDone(String appointmentId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({
+        'status': 'Done',
+      });
+
+      _showSnackbar(
+          'Appointment marked as done. Client will receive a review prompt.');
+    } catch (e) {
+      _showSnackbar('Failed to mark appointment as done: $e');
+    }
+  }
+
+  // Snackbar display function
+  void _showSnackbar(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  // Refresh function
+  Future<void> _refreshAppointments() async {
+    setState(() {
+      _paidAppointmentsStream = _getPaidAppointmentsStream();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,89 +83,105 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('salon')
-            .doc(_user?.uid)
-            .collection('appointments')
-            .where('status', isEqualTo: 'Accepted') // Filter by Accepted status
-            .where('isPaid', isEqualTo: true) // Filter by Paid appointments
-            .where('date', isEqualTo: todayDate) // Filter by today's date
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: RefreshIndicator(
+        onRefresh: _refreshAppointments,
+        child: StreamBuilder<QuerySnapshot>(
+          stream: _paidAppointmentsStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text(
-                'No paid appointments found for today.',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-            );
-          }
-
-          final appointments = snapshot.data!.docs;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: appointments.length,
-            itemBuilder: (context, index) {
-              final appointmentDoc = appointments[index];
-              final appointment = appointmentDoc.data() as Map<String, dynamic>;
-
-              // Display the appointment details
-              return Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: 5,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(15.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${appointment['date']} at ${appointment['time']}',
-                        style: GoogleFonts.abel(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return ListView(
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height - kToolbarHeight,
+                    child: const Center(
+                      child: Text(
+                        'No paid appointments found for today.',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Stylist: ${appointment['stylist']}',
-                        style: GoogleFonts.abel(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Total Price: Php ${appointment['totalPrice']}',
-                        style: GoogleFonts.abel(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Reference Number: ${appointment['reference_number']}',
-                        style: GoogleFonts.abel(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               );
-            },
-          );
-        },
+            }
+
+            final appointments = snapshot.data!.docs;
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(10),
+              itemCount: appointments.length,
+              itemBuilder: (context, index) {
+                final appointmentDoc = appointments[index];
+                final appointment =
+                    appointmentDoc.data() as Map<String, dynamic>;
+
+                return Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 5,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${appointment['date']} at ${appointment['time']}',
+                          style: GoogleFonts.abel(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Stylist: ${appointment['stylist']}',
+                          style: GoogleFonts.abel(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Total Price: Php ${appointment['totalPrice']}',
+                          style: GoogleFonts.abel(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Reference Number: ${appointment['reference_number']}',
+                          style: GoogleFonts.abel(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: () {
+                            _markAppointmentDone(appointmentDoc.id);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff355E3B),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

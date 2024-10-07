@@ -1,4 +1,3 @@
-// custom_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/bookingSchedule_client.dart';
@@ -9,6 +8,7 @@ class CustomDrawer extends StatelessWidget {
   final String? userEmail;
   final String? profileImageUrl;
   final VoidCallback onLogout;
+  final VoidCallback? onReviewExperience; // Add this parameter
 
   const CustomDrawer({
     super.key,
@@ -16,6 +16,7 @@ class CustomDrawer extends StatelessWidget {
     required this.userEmail,
     required this.profileImageUrl,
     required this.onLogout,
+    this.onReviewExperience, // Add this line
   });
 
   @override
@@ -71,6 +72,14 @@ class CustomDrawer extends StatelessWidget {
                 ),
               );
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.rate_review),
+            title: Text(
+              'Review Experience',
+              style: GoogleFonts.abel(),
+            ),
+            onTap: onReviewExperience, // Call the onReviewExperience callback
           ),
           ListTile(
             leading: const Icon(Icons.logout),
