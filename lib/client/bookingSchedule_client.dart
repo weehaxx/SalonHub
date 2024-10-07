@@ -168,7 +168,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                               ),
                               trailing: Text(
                                 appointment['rescheduled']
-                                    ? '${appointment['status']} (Rescheduled)'
+                                    ? '${appointment['status']}'
                                     : appointment['status'] ??
                                         'No status provided',
                                 style: GoogleFonts.abel(
@@ -213,137 +213,13 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  ElevatedButton(
-                                    onPressed:
-                                        isCanceled || appointment['isPaid']
-                                            ? null
-                                            : appointment['isAccepted']
-                                                ? () {
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            DownpaymentClient(
-                                                          salonId: appointment[
-                                                              'salonId'],
-                                                          totalPrice: double.tryParse(
-                                                                  appointment[
-                                                                          'price']
-                                                                      .toString()) ??
-                                                              0.0,
-                                                          appointmentId:
-                                                              appointment[
-                                                                  'appointmentId'],
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }
-                                                : null,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          isCanceled || appointment['isPaid']
-                                              ? Colors.grey
-                                              : appointment['isAccepted']
-                                                  ? Colors.green
-                                                  : Colors.grey,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20, vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      appointment['isPaid'] ? 'Paid' : 'Pay',
-                                      style: GoogleFonts.abel(
-                                        textStyle: const TextStyle(
-                                            color: Colors.white, fontSize: 14),
-                                      ),
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: isCanceled ||
-                                            isPending ||
-                                            appointment['rescheduled']
-                                        ? null
-                                        : () async {
-                                            final confirmed =
-                                                await _showRescheduleConfirmationDialog();
-                                            if (confirmed == true) {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      Reschedule(
-                                                    appointmentId: appointment[
-                                                        'appointmentId'],
-                                                    salonId:
-                                                        appointment['salonId'],
-                                                    stylistName: appointment[
-                                                        'stylistName'],
-                                                    service:
-                                                        appointment['service'],
-                                                    initialDate:
-                                                        appointment['date'],
-                                                    initialTime:
-                                                        appointment['time'],
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: isCanceled ||
-                                              isPending ||
-                                              appointment['rescheduled']
-                                          ? Colors.grey
-                                          : Colors.orange,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20, vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Reschedule',
-                                      style: GoogleFonts.abel(
-                                        textStyle: const TextStyle(
-                                            color: Colors.white, fontSize: 14),
-                                      ),
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: isCanceled
-                                        ? null
-                                        : () async {
-                                            final confirmed =
-                                                await _showCancellationConfirmationDialog();
-                                            if (confirmed == true) {
-                                              _cancelAppointment(
-                                                appointment['salonId'],
-                                                appointment['appointmentId'],
-                                              );
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          isCanceled ? Colors.grey : Colors.red,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20, vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Cancel',
-                                      style: GoogleFonts.abel(
-                                        textStyle: const TextStyle(
-                                            color: Colors.white, fontSize: 14),
-                                      ),
-                                    ),
-                                  ),
+                                  _buildPayButton(appointment, isCanceled),
+                                  _buildRescheduleButton(
+                                      appointment, isCanceled, isPending),
+                                  _buildCancelButton(appointment, isCanceled),
                                 ],
                               ),
-                            ),
+                            )
                           ],
                         ),
                       ),
@@ -351,6 +227,126 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                   );
                 },
               ),
+      ),
+    );
+  }
+
+  // Method for building the Pay button
+  Widget _buildPayButton(Map<String, dynamic> appointment, bool isCanceled) {
+    return ElevatedButton(
+      onPressed: isCanceled || appointment['isPaid']
+          ? null
+          : appointment['isAccepted']
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DownpaymentClient(
+                        salonId: appointment['salonId'],
+                        totalPrice:
+                            double.tryParse(appointment['price'].toString()) ??
+                                0.0,
+                        appointmentId: appointment['appointmentId'],
+                      ),
+                    ),
+                  );
+                }
+              : null,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isCanceled || appointment['isPaid']
+            ? Colors.grey
+            : appointment['isAccepted']
+                ? Colors.green
+                : Colors.grey,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Text(
+        appointment['isPaid'] ? 'Paid' : 'Pay',
+        style: GoogleFonts.abel(
+          textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  // Method for building the Reschedule button
+  Widget _buildRescheduleButton(
+      Map<String, dynamic> appointment, bool isCanceled, bool isPending) {
+    return ElevatedButton(
+      onPressed: isCanceled ||
+              isPending ||
+              appointment['rescheduled'] ||
+              !appointment['isPaid']
+          ? null
+          : () async {
+              final confirmed = await _showRescheduleConfirmationDialog();
+              if (confirmed == true) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Reschedule(
+                      appointmentId: appointment['appointmentId'],
+                      salonId: appointment['salonId'],
+                      stylistName: appointment['stylistName'],
+                      service: appointment['service'],
+                      initialDate: appointment['date'],
+                      initialTime: appointment['time'],
+                    ),
+                  ),
+                );
+              }
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isCanceled ||
+                isPending ||
+                appointment['rescheduled'] ||
+                !appointment['isPaid']
+            ? Colors.grey
+            : Colors.orange,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Text(
+        'Reschedule',
+        style: GoogleFonts.abel(
+          textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  // Method for building the Cancel button
+  Widget _buildCancelButton(Map<String, dynamic> appointment, bool isCanceled) {
+    return ElevatedButton(
+      onPressed: isCanceled
+          ? null
+          : () async {
+              final confirmed = await _showCancellationConfirmationDialog(
+                isPaid: appointment['isPaid'],
+                isAccepted: appointment['isAccepted'],
+              );
+              if (confirmed == true) {
+                _cancelAppointment(
+                    appointment['salonId'], appointment['appointmentId']);
+              }
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isCanceled ? Colors.grey : Colors.red,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Text(
+        'Cancel',
+        style: GoogleFonts.abel(
+          textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
       ),
     );
   }
@@ -404,24 +400,36 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
   }
 
   // Show confirmation dialog for cancellation
-  Future<bool?> _showCancellationConfirmationDialog() {
+  Future<bool?> _showCancellationConfirmationDialog(
+      {required bool isPaid, required bool isAccepted}) {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Cancellation'),
-        content: const Text(
-            'Are you sure you want to cancel this appointment? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false), // Cancel
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true), // Confirm
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        String warningMessage = isPaid
+            ? 'Are you sure you want to cancel this appointment? Your payment will not be refunded.'
+            : 'Are you sure you want to cancel this appointment? This appointment will be deleted if it is not paid.';
+
+        // Additional warning if the appointment is accepted
+        if (isAccepted) {
+          warningMessage +=
+              '\n\nWarning: If you cancel more than three accepted appointments in a day, your account may be blocked.';
+        }
+
+        return AlertDialog(
+          title: const Text('Confirm Cancellation'),
+          content: Text(warningMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false), // Cancel
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true), // Confirm
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -434,13 +442,30 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
           .collection('appointments')
           .doc(appointmentId);
 
-      await appointmentRef.update({'status': 'Canceled'});
+      final docSnapshot = await appointmentRef.get();
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        bool isPaid = data['isPaid'] ?? false;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Appointment canceled successfully!')),
-      );
+        if (isPaid) {
+          // If paid, just update the status
+          await appointmentRef.update({'status': 'Canceled'});
 
-      _fetchAppointments(); // Refresh the appointments list
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Appointment canceled successfully!')),
+          );
+        } else {
+          // If not paid, delete the appointment
+          await appointmentRef.delete();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Unpaid appointment deleted successfully!')),
+          );
+        }
+
+        _fetchAppointments(); // Refresh the appointments list
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to cancel appointment: $e')),

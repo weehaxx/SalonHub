@@ -611,6 +611,8 @@ class _BookingClientState extends State<BookingClient> {
               : '00:00', // Save as "00:00" if not set
           'status': 'Pending',
           'totalPrice': _totalPrice, // Include total price in the appointment
+          'timestamp':
+              FieldValue.serverTimestamp(), // Add the current timestamp
         });
 
         // Show confirmation dialog
