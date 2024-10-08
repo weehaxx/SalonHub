@@ -57,7 +57,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                           .collection('salon')
                           .doc(salonId)
                           .collection('appointments')
-                          .where('userId', isEqualTo: _currentUser!.uid)
+                          .where('userId', isEqualTo: _currentUser.uid)
                           .where('status', isEqualTo: 'Done')
                           .snapshots(),
                       builder: (context, appointmentSnapshot) {

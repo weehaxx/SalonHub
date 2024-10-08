@@ -6,7 +6,7 @@ import 'package:salon_hub/client/walkin_feedback.dart';
 
 class ClientFeedbackPage extends StatefulWidget {
   final String salonId;
-  final List<dynamic> services;
+  final List<Map<String, dynamic>> services; // Explicitly define the type
 
   const ClientFeedbackPage({
     super.key,
@@ -45,7 +45,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         for (var doc in snapshot.docs) {
           var data = doc.data() as Map<String, dynamic>;
           var timestamp = (data['timestamp'] as Timestamp).toDate().toLocal();
-          var formattedDate = "${timestamp.toLocal().toString().split(' ')[0]}";
+          var formattedDate =
+              '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
 
           fetchedReviews.add({
             'name': data['userName'],

@@ -37,7 +37,7 @@ class _ReviewsClientState extends State<ReviewsClient> {
       try {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(_currentUser!.uid)
+            .doc(_currentUser.uid)
             .get();
 
         if (userDoc.exists && userDoc['name'] != null) {
@@ -57,7 +57,7 @@ class _ReviewsClientState extends State<ReviewsClient> {
           .collection('salon')
           .doc(widget.salonId)
           .collection('reviews')
-          .where('userId', isEqualTo: _currentUser!.uid)
+          .where('userId', isEqualTo: _currentUser.uid)
           .where('appointmentId', isEqualTo: widget.appointmentId)
           .get();
 

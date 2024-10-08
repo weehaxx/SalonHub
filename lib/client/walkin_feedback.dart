@@ -3,11 +3,11 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/client_feedback_page.dart';
-import 'package:salon_hub/client/walkin_review.dart'; // Import the new review page
+import 'package:salon_hub/client/walkin_review.dart';
 
 class WalkInFeedbackPage extends StatefulWidget {
   final String salonId;
-  final List<dynamic> services;
+  final List<Map<String, dynamic>> services; // Updated parameter type
 
   const WalkInFeedbackPage({
     super.key,
@@ -35,7 +35,7 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
-          .collection('walkin_reviews') // Fetch from walkin_reviews collection
+          .collection('walkin_reviews')
           .orderBy('timestamp', descending: true)
           .get();
 
@@ -45,8 +45,9 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
 
         for (var doc in snapshot.docs) {
           var data = doc.data() as Map<String, dynamic>;
-          var timestamp = (data['timestamp'] as Timestamp).toDate().toLocal();
-          var formattedDate = "${timestamp.toLocal().toString().split(' ')[0]}";
+          var timestamp = (data['timestamp'] as Timestamp).toDate();
+          var formattedDate =
+              '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
 
           fetchedReviews.add({
             'name': data['userName'],
@@ -64,10 +65,20 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
           _totalReviews = fetchedReviews.length;
           _averageRating = totalRating / _totalReviews;
         });
+      } else {
+        setState(() {
+          _reviews = [];
+          _totalReviews = 0;
+          _averageRating = 0.0;
+        });
       }
     } catch (e) {
       print('Error fetching reviews: $e');
     }
+  }
+
+  Future<void> _refreshReviews() async {
+    await _fetchReviews();
   }
 
   @override
@@ -78,15 +89,24 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
         backgroundColor: Colors.orange,
         elevation: 0,
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: _refreshReviews,
+        child: _reviews.isEmpty
+            ? ListView(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 20.0),
+                children: [
+                  const Center(
+                    child: Text(
+                      'No reviews yet.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              )
+            : ListView(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 20.0),
                 children: [
                   _buildAverageRatingSection(),
                   const SizedBox(height: 30),
@@ -95,11 +115,8 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
                   _buildReviewsSection(),
                 ],
               ),
-            ),
-          ),
-          _buildCreateReviewButton(), // Button placed at the bottom center
-        ],
       ),
+      bottomNavigationBar: _buildCreateReviewButton(),
     );
   }
 
@@ -167,22 +184,15 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
           ),
         ),
         const SizedBox(height: 20),
-        _reviews.isEmpty
-            ? const Center(
-                child: Text(
-                  'No reviews yet.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _reviews.length,
-                itemBuilder: (context, index) {
-                  final review = _reviews[index];
-                  return _buildReviewItem(review);
-                },
-              ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _reviews.length,
+          itemBuilder: (context, index) {
+            final review = _reviews[index];
+            return _buildReviewItem(review);
+          },
+        ),
       ],
     );
   }
@@ -193,7 +203,6 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
       children: [
         ElevatedButton(
           onPressed: () {
-            // Navigate back to the ClientFeedbackPage
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -261,6 +270,7 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
             MaterialPageRoute(
               builder: (context) => WalkInReviewPage(
                 salonId: widget.salonId,
+                services: widget.services,
               ),
             ),
           );
@@ -271,7 +281,7 @@ class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          minimumSize: const Size(double.infinity, 50), // Full width button
+          minimumSize: const Size(double.infinity, 50),
         ),
         child: const Text(
           'Create a Review',
