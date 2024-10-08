@@ -13,6 +13,11 @@ class ReviewExperiencePage extends StatefulWidget {
 class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  Future<void> _refreshData() async {
+    // Force the state to rebuild and fetch the latest data
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,8 +116,11 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                   );
                 }
 
-                return ListView(
-                  children: appointmentWidgets,
+                return RefreshIndicator(
+                  onRefresh: _refreshData,
+                  child: ListView(
+                    children: appointmentWidgets,
+                  ),
                 );
               },
             ),
