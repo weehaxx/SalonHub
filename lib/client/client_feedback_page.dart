@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:salon_hub/client/reviews_client.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ClientFeedbackPage extends StatefulWidget {
   final String salonId;
-  final List<Map<String, dynamic>> services;
+  final List<dynamic> services;
 
   const ClientFeedbackPage({
     super.key,
@@ -19,9 +18,9 @@ class ClientFeedbackPage extends StatefulWidget {
 }
 
 class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
-  double overallRating = 0.0;
-  int totalReviews = 0;
-  List<Map<String, dynamic>> reviews = [];
+  double _averageRating = 0.0;
+  int _totalReviews = 0;
+  List<Map<String, dynamic>> _reviews = [];
 
   @override
   void initState() {
@@ -39,38 +38,29 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        double totalRating = 0.0;
         List<Map<String, dynamic>> fetchedReviews = [];
+        double totalRating = 0.0;
 
         for (var doc in snapshot.docs) {
           var data = doc.data() as Map<String, dynamic>;
-          totalRating += data['rating'];
-
-          // Format the timestamp to include date and time
           var timestamp = (data['timestamp'] as Timestamp).toDate().toLocal();
-          var formattedDateTime =
-              "${timestamp.toLocal().toString().split(' ')[0]} ${timestamp.toLocal().toString().split(' ')[1].substring(0, 5)}";
+          var formattedDate = "${timestamp.toLocal().toString().split(' ')[0]}";
 
           fetchedReviews.add({
             'name': data['userName'],
             'rating': data['rating'],
             'review': data['review'],
-            'date': formattedDateTime, // Updated to show both date and time
-            'image': 'https://via.placeholder.com/50',
-            'service': data['service'], // Service associated with review
+            'date': formattedDate,
+            'service': data['service'],
           });
+
+          totalRating += data['rating'];
         }
 
         setState(() {
-          reviews = fetchedReviews;
-          totalReviews = reviews.length;
-          overallRating = totalRating / totalReviews;
-        });
-      } else {
-        setState(() {
-          reviews = [];
-          totalReviews = 0;
-          overallRating = 0.0;
+          _reviews = fetchedReviews;
+          _totalReviews = fetchedReviews.length;
+          _averageRating = totalRating / _totalReviews;
         });
       }
     } catch (e) {
@@ -82,68 +72,47 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Customer Feedback'),
-        backgroundColor: Colors.white,
+        title: const Text('Client Feedback'),
+        backgroundColor: Colors.teal,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildOverallRatingSection(),
-            const SizedBox(height: 20),
-            Expanded(
-              child: reviews.isNotEmpty
-                  ? ListView.builder(
-                      itemCount: reviews.length,
-                      itemBuilder: (context, index) {
-                        final review = reviews[index];
-                        return _buildReviewItem(review);
-                      },
-                    )
-                  : const Center(
-                      child: Text(
-                        'No reviews yet.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 20),
-            _buildWriteReviewButton(),
+            _buildAverageRatingSection(),
+            const SizedBox(height: 30),
+            _buildReviewsSection(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOverallRatingSection() {
-    return Center(
+  Widget _buildAverageRatingSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.teal.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'Rating',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 10),
           Text(
-            overallRating.toStringAsFixed(1),
+            'Rating',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.w700,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
           ),
           const SizedBox(height: 10),
           RatingBar.builder(
-            initialRating: overallRating,
+            initialRating: _averageRating,
             minRating: 1,
             direction: Axis.horizontal,
             allowHalfRating: true,
@@ -156,18 +125,52 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             ),
             onRatingUpdate: (_) {},
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 10),
           Text(
-            'Based on $totalReviews reviews',
+            '${_averageRating.toStringAsFixed(1)} out of 5 stars based on $_totalReviews reviews',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 color: Colors.black54,
               ),
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reviews from Clients',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _reviews.isEmpty
+            ? const Center(
+                child: Text(
+                  'No reviews yet.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _reviews.length,
+                itemBuilder: (context, index) {
+                  final review = _reviews[index];
+                  return _buildReviewItem(review);
+                },
+              ),
+      ],
     );
   }
 
@@ -180,120 +183,66 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundImage: NetworkImage(review['image']),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  review['name'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  review['date'],
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        review['name'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        review['date'],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+            const SizedBox(height: 5),
+            if (review.containsKey('service') && review['service'] != null)
+              Text(
+                'Service: ${review['service']}',
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontStyle: FontStyle.italic,
                   ),
-                  const SizedBox(height: 5),
-                  if (review.containsKey('service') &&
-                      review['service'] != null)
-                    Text(
-                      'Service: ${review['service']}',
-                      style: GoogleFonts.abel(
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 5),
-                  RatingBar.builder(
-                    initialRating: review['rating'],
-                    minRating: 1,
-                    direction: Axis.horizontal,
-                    allowHalfRating: true,
-                    itemCount: 5,
-                    itemSize: 20,
-                    ignoreGestures: true,
-                    itemBuilder: (context, _) => const Icon(
-                      Icons.star,
-                      color: Colors.amber,
-                    ),
-                    onRatingUpdate: (_) {},
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    review['review'],
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                ),
+              ),
+            const SizedBox(height: 5),
+            RatingBar.builder(
+              initialRating: review['rating'].toDouble(),
+              minRating: 1,
+              direction: Axis.horizontal,
+              allowHalfRating: true,
+              itemCount: 5,
+              itemSize: 20,
+              ignoreGestures: true,
+              itemBuilder: (context, _) => const Icon(
+                Icons.star,
+                color: Colors.amber,
+              ),
+              onRatingUpdate: (_) {},
+            ),
+            const SizedBox(height: 8),
+            Text(
+              review['review'],
+              style: GoogleFonts.abel(
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWriteReviewButton() {
-    return Center(
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ReviewsClient(
-                  salonId: widget.salonId,
-                  services: widget.services,
-                ),
-              ),
-            ).then((_) {
-              _fetchReviews(); // Refresh the reviews after returning
-            });
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xff355E3B),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            shadowColor: Colors.black45,
-            elevation: 5,
-          ),
-          child: const Text(
-            'Write a review',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
         ),
       ),
     );

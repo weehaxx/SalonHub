@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:salon_hub/main.dart';
 import 'package:salon_hub/pages/login_page.dart'; // Import the login screen or main app entry point
 
 class FlaggingSystem {
@@ -40,7 +39,8 @@ class FlaggingSystem {
         // Navigate the user back to the login screen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => Login(), // Replace with your login screen
+            builder: (context) =>
+                const Login(), // Replace with your login screen
           ),
         );
 

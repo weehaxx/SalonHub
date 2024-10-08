@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class CancellationPage extends StatefulWidget {
-  const CancellationPage({Key? key}) : super(key: key);
+  const CancellationPage({super.key});
 
   @override
   _CancellationPageState createState() => _CancellationPageState();

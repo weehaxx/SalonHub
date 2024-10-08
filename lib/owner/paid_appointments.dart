@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart'; // For date formatting
+import 'package:intl/intl.dart';
 
 class PaidAppointmentsPage extends StatefulWidget {
   const PaidAppointmentsPage({super.key});
@@ -36,15 +36,29 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
   }
 
   // Function to mark an appointment as done
-  Future<void> _markAppointmentDone(String appointmentId) async {
+  Future<void> _markAppointmentDone(
+      String appointmentId, String clientId, String referenceNumber) async {
     try {
+      // Update the status of the appointment to 'Done'
       await FirebaseFirestore.instance
           .collection('salon')
           .doc(_user?.uid)
           .collection('appointments')
           .doc(appointmentId)
-          .update({
-        'status': 'Done',
+          .update({'status': 'Done'});
+
+      // Send a review notification to the client
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(clientId)
+          .collection('notifications')
+          .add({
+        'title': 'Review Your Experience',
+        'message':
+            'You completed an appointment. Click here to review your experience.',
+        'reference_number': referenceNumber,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
       });
 
       _showSnackbar(
@@ -164,7 +178,10 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
                         const SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: () {
-                            _markAppointmentDone(appointmentDoc.id);
+                            _markAppointmentDone(
+                                appointmentDoc.id,
+                                appointment['userId'],
+                                appointment['reference_number']);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xff355E3B),

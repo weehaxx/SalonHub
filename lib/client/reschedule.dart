@@ -183,9 +183,9 @@ class _RescheduleState extends State<Reschedule> {
                     ),
                   ),
                   const Divider(height: 30),
-                  Text(
+                  const Text(
                     'Reschedule Date & Time',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

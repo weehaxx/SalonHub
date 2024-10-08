@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:salon_hub/client/downpayment_client.dart';
 import 'package:salon_hub/client/flagging_system.dart';
 import 'package:salon_hub/client/reschedule.dart';
-import 'package:salon_hub/main.dart'; // Import the main entry point for redirecting to the login screen
+// Import the main entry point for redirecting to the login screen
 import 'package:intl/intl.dart';
 
 class BookingscheduleClient extends StatefulWidget {

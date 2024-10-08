@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ReschedulePage extends StatefulWidget {
-  const ReschedulePage({Key? key}) : super(key: key);
+  const ReschedulePage({super.key});
 
   @override
   _ReschedulePageState createState() => _ReschedulePageState();
@@ -136,7 +136,7 @@ class _ReschedulePageState extends State<ReschedulePage> {
                               style: GoogleFonts.abel(),
                             ),
                             Text(
-                              'Price: \$${price}',
+                              'Price: \$$price',
                               style: GoogleFonts.abel(),
                             ),
                             const SizedBox(height: 8),
