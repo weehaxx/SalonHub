@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:salon_hub/client/walkin_feedback.dart';
+import 'package:salon_hub/client/client_feedback_page.dart';
+import 'package:salon_hub/client/walkin_review.dart'; // Import the new review page
 
-class ClientFeedbackPage extends StatefulWidget {
+class WalkInFeedbackPage extends StatefulWidget {
   final String salonId;
   final List<dynamic> services;
 
-  const ClientFeedbackPage({
+  const WalkInFeedbackPage({
     super.key,
     required this.salonId,
     required this.services,
   });
 
   @override
-  _ClientFeedbackPageState createState() => _ClientFeedbackPageState();
+  _WalkInFeedbackPageState createState() => _WalkInFeedbackPageState();
 }
 
-class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
+class _WalkInFeedbackPageState extends State<WalkInFeedbackPage> {
   double _averageRating = 0.0;
   int _totalReviews = 0;
   List<Map<String, dynamic>> _reviews = [];
@@ -34,7 +35,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
-          .collection('reviews')
+          .collection('walkin_reviews') // Fetch from walkin_reviews collection
           .orderBy('timestamp', descending: true)
           .get();
 
@@ -73,22 +74,31 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Client Feedback'),
-        backgroundColor: Colors.teal,
+        title: const Text('Walk-in Feedback'),
+        backgroundColor: Colors.orange,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildAverageRatingSection(),
-            const SizedBox(height: 20),
-            _buildButtonsSection(),
-            const SizedBox(height: 30),
-            _buildReviewsSection(),
-          ],
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildAverageRatingSection(),
+                  const SizedBox(height: 30),
+                  _buildButtonsSection(),
+                  const SizedBox(height: 30),
+                  _buildReviewsSection(),
+                ],
+              ),
+            ),
+          ),
+          _buildCreateReviewButton(), // Button placed at the bottom center
+        ],
       ),
     );
   }
@@ -96,7 +106,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   Widget _buildAverageRatingSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.teal.withOpacity(0.1),
+        color: Colors.orange.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16.0),
@@ -141,6 +151,39 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reviews from Clients (Walk-in)',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _reviews.isEmpty
+            ? const Center(
+                child: Text(
+                  'No reviews yet.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _reviews.length,
+                itemBuilder: (context, index) {
+                  final review = _reviews[index];
+                  return _buildReviewItem(review);
+                },
+              ),
+      ],
     );
   }
 
@@ -208,36 +251,36 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     );
   }
 
-  Widget _buildReviewsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Reviews from Clients',
+  Widget _buildCreateReviewButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WalkInReviewPage(
+                salonId: widget.salonId,
+              ),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          minimumSize: const Size(double.infinity, 50), // Full width button
+        ),
+        child: const Text(
+          'Create a Review',
           style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: Colors.white,
+            fontSize: 16,
           ),
         ),
-        const SizedBox(height: 20),
-        _reviews.isEmpty
-            ? const Center(
-                child: Text(
-                  'No reviews yet.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _reviews.length,
-                itemBuilder: (context, index) {
-                  final review = _reviews[index];
-                  return _buildReviewItem(review);
-                },
-              ),
-      ],
+      ),
     );
   }
 
