@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/reviews_client.dart';
 
 class ReviewExperiencePage extends StatefulWidget {
@@ -14,7 +15,6 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   Future<void> _refreshData() async {
-    // Force the state to rebuild and fetch the latest data
     setState(() {});
   }
 
@@ -22,7 +22,18 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Completed Appointments'),
+        centerTitle: true,
+        title: Text(
+          'Unreviewed Appointments',
+          style: GoogleFonts.abel(
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        backgroundColor: const Color(0xff355E3B),
+        elevation: 0,
       ),
       body: _currentUser == null
           ? const Center(
@@ -50,20 +61,20 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                 }
 
                 final salonDocs = salonSnapshot.data!.docs;
-
                 List<Widget> appointmentWidgets = [];
 
                 for (var salonDoc in salonDocs) {
-                  String salonId = salonDoc.id;
+                  String currentSalonId = salonDoc.id;
 
                   appointmentWidgets.add(
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('salon')
-                          .doc(salonId)
+                          .doc(currentSalonId)
                           .collection('appointments')
-                          .where('userId', isEqualTo: _currentUser.uid)
+                          .where('userId', isEqualTo: _currentUser!.uid)
                           .where('status', isEqualTo: 'Done')
+                          .where('isReviewed', isEqualTo: false)
                           .snapshots(),
                       builder: (context, appointmentSnapshot) {
                         if (appointmentSnapshot.connectionState ==
@@ -77,37 +88,81 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                           return const SizedBox.shrink();
                         }
 
-                        final completedAppointments =
+                        final unreviewedAppointments =
                             appointmentSnapshot.data!.docs;
 
                         return Column(
-                          children: completedAppointments.map((appointment) {
-                            String appointmentId = appointment.id;
-                            List<dynamic> services =
+                          children: unreviewedAppointments.map((appointment) {
+                            String fetchedAppointmentId = appointment.id;
+                            List<dynamic> fetchedServices =
                                 appointment.get('services');
 
-                            return ListTile(
-                              title: Text(
-                                  'Service: ${services[0]}'), // Assuming services is a list of strings
-                              subtitle: Text(
-                                  'Stylist: ${appointment.get('stylist')}\nTime: ${appointment.get('time')}'),
-                              trailing: const Icon(Icons.arrow_forward_ios),
-                              onTap: () async {
-                                // Navigate to the ReviewsClient page with the correct data
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ReviewsClient(
-                                      salonId: salonId,
-                                      appointmentId: appointmentId,
-                                      services: List<String>.from(services),
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 8.0, horizontal: 16.0),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16.0),
+                                title: Text(
+                                  'Service: ${fetchedServices[0]}',
+                                  style: GoogleFonts.abel(
+                                    textStyle: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                );
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Stylist: ${appointment.get('stylist')}',
+                                      style: GoogleFonts.abel(
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Time: ${appointment.get('time')}',
+                                      style: GoogleFonts.abel(
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: const Color(0xff355E3B),
+                                  size: 20,
+                                ),
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ReviewsClient(
+                                        salonId: currentSalonId,
+                                        appointmentId: fetchedAppointmentId,
+                                        services:
+                                            List<String>.from(fetchedServices),
+                                        isAppointmentReview: true,
+                                      ),
+                                    ),
+                                  );
 
-                                // Refresh the state after returning
-                                setState(() {});
-                              },
+                                  // Refresh the state after returning
+                                  _refreshData();
+                                },
+                              ),
                             );
                           }).toList(),
                         );

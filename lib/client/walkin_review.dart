@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:salon_hub/client/walkin_feedback.dart'; // Import the WalkInFeedbackPage
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class WalkInReviewPage extends StatefulWidget {
   final String salonId;
-  final List<Map<String, dynamic>> services;
 
   const WalkInReviewPage({
     super.key,
     required this.salonId,
-    required this.services,
   });
 
   @override
@@ -19,137 +16,150 @@ class WalkInReviewPage extends StatefulWidget {
 }
 
 class _WalkInReviewPageState extends State<WalkInReviewPage> {
-  double _rating = 3.0; // Default rating
+  double _rating = 3.0;
   final TextEditingController _reviewController = TextEditingController();
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
-  String _currentUserName = 'Anonymous';
-  String? _selectedService; // For selecting the service
+  String? _reviewId; // To store the ID of the existing review if any
+  String? _selectedService; // To store the selected service
+  List<String> _services = []; // List of services to display in the dropdown
 
   @override
   void initState() {
     super.initState();
-    _fetchCurrentUserName();
-    _checkExistingReview();
+    _fetchServices();
+    _checkIfReviewed();
   }
 
-  Future<void> _fetchCurrentUserName() async {
-    if (_currentUser != null) {
-      try {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUser!.uid)
-            .get();
+  Future<void> _fetchServices() async {
+    try {
+      // Fetch services from Firestore for the specific salon
+      final servicesRef = FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('services');
 
-        if (userDoc.exists && userDoc['name'] != null) {
-          setState(() {
-            _currentUserName = userDoc['name'];
-          });
-        }
-      } catch (e) {
-        print('Error fetching user name: $e');
+      final snapshot = await servicesRef.get();
+
+      if (snapshot.docs.isNotEmpty) {
+        setState(() {
+          _services = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return (data['name'] ?? 'Unnamed Service') as String;
+          }).toList();
+        });
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching services: $e')),
+      );
     }
   }
 
-  Future<void> _checkExistingReview() async {
-    if (_currentUser != null) {
-      QuerySnapshot reviewSnapshot = await FirebaseFirestore.instance
+  Future<void> _checkIfReviewed() async {
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+
+      // Check if user is authenticated
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User is not logged in.')),
+        );
+        return;
+      }
+
+      // Query the reviews collection for a review by this user
+      final reviewsRef = FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
-          .collection('walkin_reviews')
-          .where('userId', isEqualTo: _currentUser!.uid)
+          .collection('reviews');
+
+      final querySnapshot = await reviewsRef
+          .where('userId', isEqualTo: user.uid)
+          .where('isAppointmentReview',
+              isEqualTo: false) // Only walk-in reviews
+          .limit(1)
           .get();
 
-      if (reviewSnapshot.docs.isNotEmpty) {
-        var existingReview = reviewSnapshot.docs.first;
-        String service = existingReview['service'];
-        setState(() {
-          _rating = existingReview['rating'];
-          _reviewController.text = existingReview['review'];
-          _selectedService = widget.services
-                  .map((service) => service['name'])
-                  .contains(service)
-              ? service
-              : null;
-        });
+      if (querySnapshot.docs.isNotEmpty) {
+        // If a review exists, pre-fill the form fields with the existing data
+        final existingReview = querySnapshot.docs.first;
+        _reviewId = existingReview.id;
+        _rating = existingReview['rating'];
+        _reviewController.text = existingReview['review'];
+        _selectedService = existingReview['service'];
+
+        setState(() {}); // Refresh the UI with the pre-filled data
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error checking for existing review: $e')),
+      );
     }
   }
 
   Future<void> _submitReview() async {
-    if (_rating == 0) {
-      _showSnackbar('Please select a rating before submitting your review.');
-      return;
-    }
-
-    if (_reviewController.text.isEmpty) {
-      _showSnackbar('Please write a review before submitting.');
-      return;
-    }
-
-    if (_selectedService == null || _selectedService!.isEmpty) {
-      _showSnackbar('Please select a service before submitting.');
-      return;
-    }
-
-    final reviewData = {
-      'rating': _rating,
-      'review': _reviewController.text.trim(),
-      'userId': _currentUser?.uid,
-      'userName': _currentUserName,
-      'service': _selectedService,
-      'timestamp': Timestamp.now(),
-    };
-
     try {
-      QuerySnapshot existingReviewSnapshot = await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(widget.salonId)
-          .collection('walkin_reviews')
-          .where('userId', isEqualTo: _currentUser?.uid)
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+
+      // Check if user is authenticated
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User is not logged in.')),
+        );
+        return;
+      }
+
+      // Fetch the user's document from Firestore to get their name
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
           .get();
 
-      if (existingReviewSnapshot.docs.isNotEmpty) {
-        var existingReviewDocId = existingReviewSnapshot.docs.first.id;
-        await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(widget.salonId)
-            .collection('walkin_reviews')
-            .doc(existingReviewDocId)
-            .update(reviewData);
-      } else {
-        await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(widget.salonId)
-            .collection('walkin_reviews')
-            .add(reviewData);
-      }
+      String userName =
+          userDoc.exists ? userDoc['name'] ?? 'Anonymous' : 'Anonymous';
 
-      _showSnackbar('Review submitted successfully!', isSuccess: true);
-      if (mounted) {
-        // Navigate back to WalkInFeedbackPage with updated display
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WalkInFeedbackPage(
-              salonId: widget.salonId,
-              services: widget.services,
-            ),
-          ),
+      // Get a reference to the Firestore collection for reviews
+      final reviewsRef = FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('reviews');
+
+      if (_reviewId != null) {
+        // If an existing review is found, update it
+        await reviewsRef.doc(_reviewId).update({
+          'rating': _rating,
+          'review': _reviewController.text,
+          'timestamp': Timestamp.now(),
+          'service': _selectedService,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Review updated successfully!')),
+        );
+      } else {
+        // If no existing review, create a new one
+        await reviewsRef.add({
+          'rating': _rating,
+          'review': _reviewController.text,
+          'timestamp': Timestamp.now(),
+          'isAppointmentReview': false, // Indicate it's a walk-in review
+          'userId': user.uid,
+          'userName': userName,
+          'service': _selectedService,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Review submitted successfully!')),
         );
       }
-    } catch (e) {
-      _showSnackbar('Error submitting review: $e');
-    }
-  }
 
-  void _showSnackbar(String message, {bool isSuccess = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+      Navigator.pop(context, true); // Return true to indicate success
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit review: $e')),
+      );
+    }
   }
 
   @override
@@ -157,7 +167,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Submit Walk-in Review'),
-        backgroundColor: Colors.orange,
+        backgroundColor: const Color(0xff355E3B),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -165,32 +175,8 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Select Service',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              value: _selectedService,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-              ),
-              items: widget.services.map((service) {
-                return DropdownMenuItem<String>(
-                  value: service['name'],
-                  child: Text(service['name']),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedService = value;
-                });
-              },
-              hint: const Text("Select a service"),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Rate your experience:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Rate your walk-in experience:',
+              style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 10),
             RatingBar.builder(
@@ -211,29 +197,52 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Write your review:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Select a service:',
+              style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 10),
+            DropdownButton<String>(
+              isExpanded: true,
+              value: _selectedService,
+              hint: const Text('Choose a service'),
+              items: _services.map((service) {
+                return DropdownMenuItem<String>(
+                  value: service,
+                  child: Text(service),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedService = value;
+                });
+              },
+            ),
+            const SizedBox(height: 20),
             TextField(
               controller: _reviewController,
-              maxLines: 5,
+              maxLines: 4,
               decoration: const InputDecoration(
-                border: OutlineInputBorder(),
                 hintText: 'Write your review here...',
+                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitReview,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-              child: const Center(
-                child: Text(
+            Center(
+              child: ElevatedButton(
+                onPressed: _selectedService == null
+                    ? null
+                    : _submitReview, // Disable the button if no service is selected
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff355E3B),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: const Text(
                   'Submit Review',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  style: TextStyle(fontSize: 16),
                 ),
               ),
             ),
@@ -241,11 +250,5 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _reviewController.dispose();
-    super.dispose();
   }
 }

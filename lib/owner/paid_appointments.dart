@@ -36,16 +36,20 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
   }
 
   // Function to mark an appointment as done
+  // Function to mark an appointment as done
   Future<void> _markAppointmentDone(
       String appointmentId, String clientId, String referenceNumber) async {
     try {
-      // Update the status of the appointment to 'Done'
+      // Update the status of the appointment to 'Done' and set 'isReviewed' to false
       await FirebaseFirestore.instance
           .collection('salon')
           .doc(_user?.uid)
           .collection('appointments')
           .doc(appointmentId)
-          .update({'status': 'Done'});
+          .update({
+        'status': 'Done',
+        'isReviewed': false, // Add this field to indicate it needs a review
+      });
 
       // Send a review notification to the client
       await FirebaseFirestore.instance
@@ -62,7 +66,8 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
       });
 
       _showSnackbar(
-          'Appointment marked as done. Client will receive a review prompt.');
+          'Appointment marked as done. Client will receive a review prompt.',
+          isSuccess: true);
     } catch (e) {
       _showSnackbar('Failed to mark appointment as done: $e');
     }

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:salon_hub/client/walkin_feedback.dart';
+import 'walkin_review.dart'; // Import the WalkinReview page
 
 class ClientFeedbackPage extends StatefulWidget {
   final String salonId;
-  final List<Map<String, dynamic>> services; // Explicitly define the type
+  final List<Map<String, dynamic>> services;
 
   const ClientFeedbackPage({
     super.key,
@@ -22,6 +22,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   double _averageRating = 0.0;
   int _totalReviews = 0;
   List<Map<String, dynamic>> _reviews = [];
+  String _selectedReviewType = 'Appointments';
 
   @override
   void initState() {
@@ -48,12 +49,28 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           var formattedDate =
               '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
 
+          // Determine how to handle services based on review type
+          String service = '';
+          if (data['isAppointmentReview'] == true) {
+            // If it's an appointment review, services might be a list
+            if (data['services'] != null && data['services'] is List) {
+              List servicesList = data['services'];
+              service = servicesList.join(', ');
+            } else {
+              service = 'N/A';
+            }
+          } else {
+            // For walk-in reviews, service is a single string
+            service = data['service'] ?? 'N/A';
+          }
+
           fetchedReviews.add({
             'name': data['userName'],
             'rating': data['rating'],
             'review': data['review'],
             'date': formattedDate,
-            'service': data['service'],
+            'service': service,
+            'isAppointmentReview': data['isAppointmentReview'],
           });
 
           totalRating += data['rating'];
@@ -70,34 +87,134 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     }
   }
 
+  List<Map<String, dynamic>> _filteredReviews() {
+    if (_selectedReviewType == 'Appointments') {
+      return _reviews
+          .where((review) => review['isAppointmentReview'] == true)
+          .toList();
+    } else if (_selectedReviewType == 'Walk-ins') {
+      return _reviews
+          .where((review) => review['isAppointmentReview'] == false)
+          .toList();
+    }
+    return _reviews;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Client Feedback'),
-        backgroundColor: Colors.teal,
+        centerTitle: true,
+        title: Text(
+          'Client Feedback',
+          style: GoogleFonts.abel(
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        backgroundColor: const Color(0xff355E3B),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildAverageRatingSection(),
-            const SizedBox(height: 20),
-            _buildButtonsSection(),
-            const SizedBox(height: 30),
-            _buildReviewsSection(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: _fetchReviews,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildReviewTypeButtons(),
+              const SizedBox(height: 20),
+              _buildAverageRatingSection(),
+              const SizedBox(height: 30),
+              _buildReviewsSection(),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: _selectedReviewType == 'Walk-ins'
+          ? Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff355E3B),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WalkInReviewPage(
+                        salonId: widget.salonId,
+                      ),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Add Review',
+                  style: GoogleFonts.abel(
+                    textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildReviewTypeButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildButton('Appointments'),
+        const SizedBox(width: 20),
+        _buildButton('Walk-ins'),
+      ],
+    );
+  }
+
+  Widget _buildButton(String type) {
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _selectedReviewType = type;
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            _selectedReviewType == type ? const Color(0xff355E3B) : Colors.grey,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+      child: Text(
+        type,
+        style: GoogleFonts.abel(
+          textStyle: const TextStyle(color: Colors.white, fontSize: 16),
         ),
       ),
     );
   }
 
   Widget _buildAverageRatingSection() {
+    final filteredReviews = _filteredReviews();
+    final averageRating = filteredReviews.isEmpty
+        ? 0.0
+        : filteredReviews.map((r) => r['rating']).reduce((a, b) => a + b) /
+            filteredReviews.length;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.teal.withOpacity(0.1),
+        color: const Color(0xffDFF6DD),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16.0),
@@ -116,7 +233,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           RatingBar.builder(
-            initialRating: _averageRating,
+            initialRating: averageRating,
             minRating: 1,
             direction: Axis.horizontal,
             allowHalfRating: true,
@@ -131,7 +248,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '${_averageRating.toStringAsFixed(1)} out of 5 stars based on $_totalReviews reviews',
+            '${averageRating.toStringAsFixed(1)} out of 5 stars based on ${filteredReviews.length} reviews',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
                 fontSize: 16,
@@ -145,71 +262,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     );
   }
 
-  Widget _buildButtonsSection() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton(
-          onPressed: () {
-            // Navigate back to the ClientFeedbackPage
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ClientFeedbackPage(
-                  salonId: widget.salonId,
-                  services: widget.services,
-                ),
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          ),
-          child: const Text(
-            'Appointment',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-        ),
-        const SizedBox(width: 20),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => WalkInFeedbackPage(
-                  salonId: widget.salonId,
-                  services: widget.services,
-                ),
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          ),
-          child: const Text(
-            'Walk-in',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildReviewsSection() {
+    final filteredReviews = _filteredReviews();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -222,7 +276,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
         ),
         const SizedBox(height: 20),
-        _reviews.isEmpty
+        filteredReviews.isEmpty
             ? const Center(
                 child: Text(
                   'No reviews yet.',
@@ -232,9 +286,9 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             : ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _reviews.length,
+                itemCount: filteredReviews.length,
                 itemBuilder: (context, index) {
-                  final review = _reviews[index];
+                  final review = filteredReviews[index];
                   return _buildReviewItem(review);
                 },
               ),
