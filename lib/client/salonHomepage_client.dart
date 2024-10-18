@@ -6,21 +6,22 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
-
+import 'package:salon_hub/client/salonFiltering_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
 
 class SalonhomepageClient extends StatefulWidget {
   const SalonhomepageClient({super.key});
 
   @override
-  State<SalonhomepageClient> createState() => SalonhomepageClientState();
+  State<SalonhomepageClient> createState() => _SalonhomepageClientState();
 }
 
-class SalonhomepageClientState extends State<SalonhomepageClient> {
+class _SalonhomepageClientState extends State<SalonhomepageClient> {
   String? _userName;
   String? _userEmail;
   String? _profileImageUrl;
   List<Map<String, dynamic>> _salons = [];
+  int _selectedIndex = 0; // For Bottom Navigation
 
   @override
   void initState() {
@@ -52,7 +53,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
     }
   }
 
-  // Method to prompt the user for their name if it's not set
   void _promptForUserName() {
     TextEditingController nameController = TextEditingController();
 
@@ -62,7 +62,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
       builder: (BuildContext context) {
         return Stack(
           children: [
-            // Blur background
             BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
               child: Container(
@@ -119,7 +118,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                         });
                         Navigator.of(context).pop();
                       } else {
-                        // Show error if name is empty
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Name cannot be empty.'),
@@ -141,7 +139,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
     );
   }
 
-  // Save the entered name to Firestore
   Future<void> _saveUserName(String name) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -153,7 +150,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
           'name': name,
         });
       } catch (e) {
-        // Handle Firestore update errors
         print('Error saving name: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -176,21 +172,18 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
         double averageRating = 0;
         int totalReviews = 0;
 
-        // Fetch services
         QuerySnapshot servicesSnapshot =
             await doc.reference.collection('services').get();
         services = servicesSnapshot.docs
             .map((serviceDoc) => serviceDoc.data() as Map<String, dynamic>)
             .toList();
 
-        // Fetch stylists
         QuerySnapshot stylistsSnapshot =
             await doc.reference.collection('stylists').get();
         stylists = stylistsSnapshot.docs
             .map((stylistDoc) => stylistDoc.data() as Map<String, dynamic>)
             .toList();
 
-        // Fetch reviews and calculate the average rating
         QuerySnapshot reviewsSnapshot =
             await doc.reference.collection('reviews').get();
         if (reviewsSnapshot.docs.isNotEmpty) {
@@ -203,7 +196,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
           totalReviews = reviewsSnapshot.docs.length;
         }
 
-        // Map the document fields to our salon structure
         return {
           'salon_id': doc.id,
           'salon_name': doc['salon_name'] ?? 'Unknown Salon',
@@ -211,10 +203,10 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
           'open_time': doc['open_time'] ?? 'Unknown',
           'close_time': doc['close_time'] ?? 'Unknown',
           'image_url': doc['image_url'] ?? '',
-          'services': services, // Add services list
-          'stylists': stylists, // Add stylists list
-          'rating': averageRating, // Add average rating
-          'total_reviews': totalReviews // Number of reviews
+          'services': services,
+          'stylists': stylists,
+          'rating': averageRating,
+          'total_reviews': totalReviews
         };
       }).toList());
 
@@ -226,14 +218,10 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
     }
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const Login(),
-      ),
-    );
+  void _onTabSelected(int index) {
+    setState(() {
+      _selectedIndex = index; // Update selected index for BottomNavigation
+    });
   }
 
   Future<void> _handleRefresh() async {
@@ -249,7 +237,6 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
         profileImageUrl: _profileImageUrl,
         onLogout: _logout,
         onReviewExperience: () {
-          // This should now work correctly
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -258,165 +245,118 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
           );
         },
       ),
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // AppBar layout and the rest of your code..
-            // Fixed AppBar layout
-            Container(
-              padding: const EdgeInsets.only(top: 30),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Builder(
-                    builder: (context) {
-                      return IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.black),
-                        onPressed: () {
-                          Scaffold.of(context).openDrawer();
-                        },
-                      );
-                    },
-                  ),
-                  Center(
-                    child: Image.asset(
-                      'assets/images/logo2.png',
-                      height: 35,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications, color: Colors.black),
-                    onPressed: () {},
-                  ),
-                ],
+            // Removed the extra drawer icon here
+            Center(
+              child: Image.asset(
+                'assets/images/logo2.png', // Replace with your logo asset path
+                height: 35,
               ),
             ),
-            // Greeting section
-            Padding(
-              padding: const EdgeInsets.only(left: 15, bottom: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hello ${_userName ?? 'User'},',
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 20,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Welcome to SALON HUB!',
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            IconButton(
+              icon: const Icon(Icons.notifications, color: Colors.black),
+              onPressed: () {
+                // Handle notifications onPressed
+              },
             ),
-            // Search bar section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: SizedBox(
-                height: 40,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    textAlign: TextAlign.start,
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      labelText: 'Search',
-                      labelStyle: GoogleFonts.abel(
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          color: Color.fromARGB(255, 170, 165, 165),
-                        ),
-                      ),
-                      floatingLabelBehavior: FloatingLabelBehavior.never,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 15,
-                        horizontal: 20,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: Color.fromARGB(255, 170, 165, 165),
-                        size: 20,
-                      ),
-                    ),
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
+          ],
+        ),
+        elevation: 0, // Removes shadow for a clean look
+      ),
+      body: _selectedIndex == 0
+          ? _buildRecommendationsPage()
+          : _buildFilterPage(), // Conditionally render based on selected tab
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onTabSelected, // Call method to change tabs
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Recommendations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.filter_list),
+            label: 'Services Filter',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsPage() {
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 15, bottom: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello ${_userName ?? 'User'},',
+                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Salon container section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: Text(
-                'Top Salons',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 18,
+                const SizedBox(height: 5),
+                Text(
+                  'Welcome to SALON HUB!',
+                  style: GoogleFonts.abel(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 10),
-            // Scrollable List of Salons
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                child: ListView.builder(
-                  padding: EdgeInsets.zero, // No extra padding
-                  itemCount: _salons.length,
-                  itemBuilder: (context, index) {
-                    final salon = _salons[index];
-                    final double rating = salon.containsKey('rating')
-                        ? salon['rating'].toDouble()
-                        : 0.0;
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: _salons.length,
+              itemBuilder: (context, index) {
+                final salon = _salons[index];
+                final double rating = salon.containsKey('rating')
+                    ? salon['rating'].toDouble()
+                    : 0.0;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5.0),
-                      child: SalonContainer(
-                        key: UniqueKey(),
-                        salonId: salon['salon_id'],
-                        rating: rating,
-                        salon: salon,
-                      ),
-                    );
-                  },
-                ),
-              ),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: SalonContainer(
+                    key: UniqueKey(),
+                    salonId: salon['salon_id'],
+                    rating: rating,
+                    salon: salon,
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPage() {
+    return SalonFilterPage(
+      onFilterApplied: (filteredSalons) {
+        setState(() {
+          _salons = filteredSalons; // Update the state with the filtered salons
+        });
+      },
+    );
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const Login(),
       ),
     );
   }
