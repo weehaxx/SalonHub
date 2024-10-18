@@ -12,6 +12,7 @@ class SalondetailsClient extends StatefulWidget {
   final List<Map<String, dynamic>> stylists;
   final String openTime;
   final String closeTime;
+  final String userId; // Add userId here
 
   const SalondetailsClient({
     super.key,
@@ -22,6 +23,7 @@ class SalondetailsClient extends StatefulWidget {
     required this.stylists,
     required this.openTime,
     required this.closeTime,
+    required this.userId, // Add userId as a required parameter
   });
 
   @override
@@ -249,8 +251,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
               Padding(
                 padding: const EdgeInsets.only(left: 10, right: 10),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment
-                      .spaceBetween, // Aligns time and rating evenly
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Star Rating Section
                     Row(
@@ -265,6 +266,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                                 builder: (context) => ClientFeedbackPage(
                                   salonId: widget.salonId,
                                   services: widget.services,
+                                  userId: widget.userId, // Pass userId here
                                 ),
                               ),
                             );

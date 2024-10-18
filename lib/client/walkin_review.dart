@@ -21,17 +21,19 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
   String? _reviewId; // To store the ID of the existing review if any
   String? _selectedService; // To store the selected service
   List<String> _services = []; // List of services to display in the dropdown
+  List<Map<String, dynamic>> _reviews = [];
+  int? _selectedStarFilter; // Star rating filter variable
+  String _selectedUpvoteFilter = 'Most Upvoted'; // Upvote filter variable
 
   @override
   void initState() {
     super.initState();
     _fetchServices();
-    _checkIfReviewed();
+    _checkIfReviewed(); // Check if the user has already reviewed
   }
 
   Future<void> _fetchServices() async {
     try {
-      // Fetch services from Firestore for the specific salon
       final servicesRef = FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
@@ -54,12 +56,31 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
     }
   }
 
+  List<Map<String, dynamic>> _filteredReviews() {
+    List<Map<String, dynamic>> filtered = _reviews;
+
+    // Filter by star rating
+    if (_selectedStarFilter != null) {
+      filtered = filtered
+          .where((review) => review['rating'] == _selectedStarFilter)
+          .toList();
+    }
+
+    // Filter by upvotes
+    if (_selectedUpvoteFilter == 'Most Upvoted') {
+      filtered.sort((a, b) => b['upvotes'].compareTo(a['upvotes']));
+    } else if (_selectedUpvoteFilter == 'Least Upvoted') {
+      filtered.sort((a, b) => a['upvotes'].compareTo(b['upvotes']));
+    }
+
+    return filtered;
+  }
+
+  // Check if the user has already reviewed for the walk-in
   Future<void> _checkIfReviewed() async {
     try {
-      // Get current user
       final user = FirebaseAuth.instance.currentUser;
 
-      // Check if user is authenticated
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User is not logged in.')),
@@ -67,42 +88,79 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         return;
       }
 
-      // Query the reviews collection for a review by this user
-      final reviewsRef = FirebaseFirestore.instance
+      // Query to check if user already has a review for the walk-in
+      final reviewQuery = await FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
-          .collection('reviews');
-
-      final querySnapshot = await reviewsRef
+          .collection('reviews')
           .where('userId', isEqualTo: user.uid)
-          .where('isAppointmentReview',
-              isEqualTo: false) // Only walk-in reviews
+          .where('isAppointmentReview', isEqualTo: false) // Walk-in review
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        // If a review exists, pre-fill the form fields with the existing data
-        final existingReview = querySnapshot.docs.first;
+      if (reviewQuery.docs.isNotEmpty) {
+        final existingReview = reviewQuery.docs.first;
         _reviewId = existingReview.id;
-        _rating = existingReview['rating'];
-        _reviewController.text = existingReview['review'];
-        _selectedService = existingReview['service'];
+        final data = existingReview.data();
 
-        setState(() {}); // Refresh the UI with the pre-filled data
+        // Prefill the rating and review text with the existing review details
+        setState(() {
+          _rating = data['rating'];
+          _reviewController.text = data['review'];
+          _selectedService = data['service'];
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error checking for existing review: $e')),
+        SnackBar(content: Text('Error checking review: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchReviews() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('reviews')
+          .where('isAppointmentReview', isEqualTo: false)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        List<Map<String, dynamic>> fetchedReviews = [];
+
+        for (var doc in snapshot.docs) {
+          var data = doc.data() as Map<String, dynamic>;
+          var timestamp = (data['timestamp'] as Timestamp).toDate().toLocal();
+          var formattedDate =
+              '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
+
+          fetchedReviews.add({
+            'id': doc.id,
+            'name': data['userName'] ?? 'Anonymous',
+            'rating': data['rating'] ?? 0.0,
+            'review': data['review'] ?? '',
+            'date': formattedDate,
+            'service': data['service'] ?? 'Unknown Service',
+            'upvotes': data['upvotes'] ?? 0,
+          });
+        }
+
+        setState(() {
+          _reviews = fetchedReviews;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching reviews: $e')),
       );
     }
   }
 
   Future<void> _submitReview() async {
     try {
-      // Get current user
       final user = FirebaseAuth.instance.currentUser;
 
-      // Check if user is authenticated
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User is not logged in.')),
@@ -110,7 +168,6 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         return;
       }
 
-      // Fetch the user's document from Firestore to get their name
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -119,34 +176,33 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
       String userName =
           userDoc.exists ? userDoc['name'] ?? 'Anonymous' : 'Anonymous';
 
-      // Get a reference to the Firestore collection for reviews
       final reviewsRef = FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
           .collection('reviews');
 
       if (_reviewId != null) {
-        // If an existing review is found, update it
+        // Update the existing review if the user has already reviewed
         await reviewsRef.doc(_reviewId).update({
           'rating': _rating,
           'review': _reviewController.text,
           'timestamp': Timestamp.now(),
-          'service': _selectedService,
+          'service': _selectedService ?? 'Unknown Service',
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review updated successfully!')),
         );
       } else {
-        // If no existing review, create a new one
+        // Add a new review if no review exists
         await reviewsRef.add({
           'rating': _rating,
           'review': _reviewController.text,
           'timestamp': Timestamp.now(),
-          'isAppointmentReview': false, // Indicate it's a walk-in review
+          'isAppointmentReview': false,
           'userId': user.uid,
           'userName': userName,
-          'service': _selectedService,
+          'service': _selectedService ?? 'Unknown Service',
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +210,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         );
       }
 
-      Navigator.pop(context, true); // Return true to indicate success
+      Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to submit review: $e')),
@@ -162,12 +218,47 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
     }
   }
 
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Filters',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text('Filter by Star Rating:'),
+              const SizedBox(height: 10),
+              _buildStarFilterButtons(),
+              const SizedBox(height: 20),
+              const Text('Filter by Upvotes:'),
+              const SizedBox(height: 10),
+              _buildUpvoteFilterButtons(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filteredReviews = _filteredReviews();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Submit Walk-in Review'),
         backgroundColor: const Color(0xff355E3B),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterBottomSheet,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -229,9 +320,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
-                onPressed: _selectedService == null
-                    ? null
-                    : _submitReview, // Disable the button if no service is selected
+                onPressed: _selectedService == null ? null : _submitReview,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff355E3B),
                   padding:
@@ -246,9 +335,110 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filteredReviews.length,
+                itemBuilder: (context, index) {
+                  final review = filteredReviews[index];
+                  return ListTile(
+                    title: Text(review['name']),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Rating: ${review['rating']}'),
+                        Text('Service: ${review['service']}'),
+                        Text('Review: ${review['review']}'),
+                        Text('Upvotes: ${review['upvotes']}'),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStarFilterButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _selectedStarFilter = index + 1;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _selectedStarFilter == index + 1
+                  ? const Color(0xff355E3B)
+                  : Colors.grey,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(
+              '${index + 1} Star',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildUpvoteFilterButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedUpvoteFilter = 'Most Upvoted';
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedUpvoteFilter == 'Most Upvoted'
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: const Text(
+            'Most Upvoted',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedUpvoteFilter = 'Least Upvoted';
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedUpvoteFilter == 'Least Upvoted'
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: const Text(
+            'Least Upvoted',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
     );
   }
 }

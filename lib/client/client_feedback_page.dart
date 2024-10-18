@@ -7,11 +7,13 @@ import 'walkin_review.dart'; // Import the WalkinReview page
 class ClientFeedbackPage extends StatefulWidget {
   final String salonId;
   final List<Map<String, dynamic>> services;
+  final String userId; // Add userId to track the upvoter
 
   const ClientFeedbackPage({
     super.key,
     required this.salonId,
     required this.services,
+    required this.userId, // Pass the userId from the parent widget
   });
 
   @override
@@ -23,11 +25,14 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   int _totalReviews = 0;
   List<Map<String, dynamic>> _reviews = [];
   String _selectedReviewType = 'Appointments';
+  int? _selectedStarFilter; // Star rating filter variable
+  Set<String> _upvotedReviews = {}; // Track upvoted reviews by ID
 
   @override
   void initState() {
     super.initState();
     _fetchReviews();
+    _fetchUserUpvotedReviews(); // Fetch user's upvoted reviews
   }
 
   Future<void> _fetchReviews() async {
@@ -49,10 +54,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           var formattedDate =
               '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
 
-          // Determine how to handle services based on review type
           String service = '';
           if (data['isAppointmentReview'] == true) {
-            // If it's an appointment review, services might be a list
             if (data['services'] != null && data['services'] is List) {
               List servicesList = data['services'];
               service = servicesList.join(', ');
@@ -60,17 +63,18 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
               service = 'N/A';
             }
           } else {
-            // For walk-in reviews, service is a single string
             service = data['service'] ?? 'N/A';
           }
 
           fetchedReviews.add({
+            'id': doc.id,
             'name': data['userName'],
             'rating': data['rating'],
             'review': data['review'],
             'date': formattedDate,
             'service': service,
             'isAppointmentReview': data['isAppointmentReview'],
+            'upvotes': data['upvotes'] ?? 0,
           });
 
           totalRating += data['rating'];
@@ -79,7 +83,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         setState(() {
           _reviews = fetchedReviews;
           _totalReviews = fetchedReviews.length;
-          _averageRating = totalRating / _totalReviews;
+          _averageRating =
+              totalRating / _totalReviews; // Calculate overall rating
         });
       }
     } catch (e) {
@@ -87,17 +92,123 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     }
   }
 
+  // Fetch upvoted reviews by the current user
+  Future<void> _fetchUserUpvotedReviews() async {
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .get();
+
+      if (userSnapshot.exists) {
+        var data = userSnapshot.data() as Map<String, dynamic>;
+        if (data.containsKey('upvotedReviews')) {
+          setState(() {
+            _upvotedReviews = Set<String>.from(data['upvotedReviews']);
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching upvoted reviews: $e');
+    }
+  }
+
+  // Method to handle upvote functionality
+  Future<void> _upvoteReview(String reviewId) async {
+    if (_upvotedReviews.contains(reviewId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can only upvote a review once!')),
+      );
+      return;
+    }
+
+    try {
+      DocumentReference reviewRef = FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('reviews')
+          .doc(reviewId);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(reviewRef);
+
+        if (!snapshot.exists) {
+          throw Exception("Review does not exist!");
+        }
+
+        Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+        int currentUpvotes = data.containsKey('upvotes') ? data['upvotes'] : 0;
+
+        transaction.update(reviewRef, {'upvotes': currentUpvotes + 1});
+      });
+
+      // Update user's upvote list
+      DocumentReference userRef =
+          FirebaseFirestore.instance.collection('users').doc(widget.userId);
+
+      await userRef.update({
+        'upvotedReviews': FieldValue.arrayUnion([reviewId]),
+      });
+
+      setState(() {
+        _upvotedReviews.add(reviewId);
+      });
+
+      await _fetchReviews();
+    } catch (e) {
+      print('Error upvoting review: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upvote the review: $e')),
+      );
+    }
+  }
+
   List<Map<String, dynamic>> _filteredReviews() {
+    List<Map<String, dynamic>> filtered = _reviews;
+
+    // Filter by review type (Appointments or Walk-ins)
     if (_selectedReviewType == 'Appointments') {
-      return _reviews
+      filtered = filtered
           .where((review) => review['isAppointmentReview'] == true)
           .toList();
     } else if (_selectedReviewType == 'Walk-ins') {
-      return _reviews
+      filtered = filtered
           .where((review) => review['isAppointmentReview'] == false)
           .toList();
     }
-    return _reviews;
+
+    // Filter by star rating
+    if (_selectedStarFilter != null) {
+      filtered = filtered
+          .where((review) => review['rating'] == _selectedStarFilter)
+          .toList();
+    }
+
+    return filtered;
+  }
+
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Filters',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text('Filter by Star Rating:'),
+              const SizedBox(height: 10),
+              _buildStarFilterButtons(),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -125,6 +236,20 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              ElevatedButton(
+                onPressed: _showFilterBottomSheet,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff355E3B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Filter Reviews',
+                    style: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(height: 20),
               _buildReviewTypeButtons(),
               const SizedBox(height: 20),
               _buildAverageRatingSection(),
@@ -205,13 +330,65 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     );
   }
 
-  Widget _buildAverageRatingSection() {
-    final filteredReviews = _filteredReviews();
-    final averageRating = filteredReviews.isEmpty
-        ? 0.0
-        : filteredReviews.map((r) => r['rating']).reduce((a, b) => a + b) /
-            filteredReviews.length;
+  Widget _buildStarFilterButtons() {
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 8.0,
+      alignment: WrapAlignment.center,
+      children: List.generate(5, (index) {
+        return ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedStarFilter = index + 1;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedStarFilter == index + 1
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: Text(
+            '${index + 1} Star',
+            style: GoogleFonts.abel(
+              textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        );
+      })
+        ..insert(
+            0,
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _selectedStarFilter =
+                      null; // Reset filter to show all reviews
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedStarFilter == null
+                    ? const Color(0xff355E3B)
+                    : Colors.grey,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text(
+                'All',
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            )),
+    );
+  }
 
+  Widget _buildAverageRatingSection() {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xffDFF6DD),
@@ -222,7 +399,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            'Rating',
+            'Overall Rating',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
                 fontSize: 24,
@@ -233,7 +410,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           RatingBar.builder(
-            initialRating: averageRating,
+            initialRating: _averageRating,
             minRating: 1,
             direction: Axis.horizontal,
             allowHalfRating: true,
@@ -248,7 +425,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '${averageRating.toStringAsFixed(1)} out of 5 stars based on ${filteredReviews.length} reviews',
+            '${_averageRating.toStringAsFixed(1)} out of 5 stars based on $_totalReviews reviews',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
                 fontSize: 16,
@@ -355,14 +532,27 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
               onRatingUpdate: (_) {},
             ),
             const SizedBox(height: 8),
-            Text(
-              review['review'],
-              style: GoogleFonts.abel(
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.thumb_up),
+                  color: Colors.grey,
+                  onPressed: () => _upvoteReview(review['id']),
                 ),
-              ),
+                Text('${review['upvotes']}'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    review['review'],
+                    style: GoogleFonts.abel(
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
-
 import 'package:salon_hub/pages/login_page.dart';
 
 class SalonhomepageClient extends StatefulWidget {
@@ -20,6 +19,7 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
   String? _userName;
   String? _userEmail;
   String? _profileImageUrl;
+  String? _userId; // Store userId here
   List<Map<String, dynamic>> _salons = [];
 
   @override
@@ -32,6 +32,11 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
   Future<void> _checkAndLoadUserName() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      // Save userId
+      setState(() {
+        _userId = user.uid;
+      });
+
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -409,6 +414,7 @@ class SalonhomepageClientState extends State<SalonhomepageClient> {
                         salonId: salon['salon_id'],
                         rating: rating,
                         salon: salon,
+                        userId: _userId ?? '', // Pass userId here
                       ),
                     );
                   },

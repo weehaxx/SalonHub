@@ -11,12 +11,14 @@ class SalonContainer extends StatelessWidget {
   final String salonId;
   final double rating;
   final Map<String, dynamic> salon;
+  final String userId; // Add userId here
 
   const SalonContainer({
     required Key key,
     required this.salonId,
     required this.rating,
     required this.salon,
+    required this.userId, // Pass userId here
   }) : super(key: key);
 
   Future<void> _handleLocationPermission(BuildContext context) async {
@@ -237,6 +239,7 @@ class SalonContainer extends StatelessWidget {
                                   stylists: stylists,
                                   openTime: openTime,
                                   closeTime: closeTime,
+                                  userId: userId, // Pass userId here
                                 ),
                               ),
                             );
