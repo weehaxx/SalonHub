@@ -6,9 +6,9 @@ class SalonFilterPage extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onFilterApplied;
 
   const SalonFilterPage({
-    Key? key,
+    super.key,
     required this.onFilterApplied,
-  }) : super(key: key);
+  });
 
   @override
   _SalonFilterPageState createState() => _SalonFilterPageState();
@@ -127,7 +127,7 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
             // Display the filtered salons below the filter controls
             Expanded(
               child: filteredSalons.isEmpty
-                  ? Center(child: Text("No salons match the criteria"))
+                  ? const Center(child: Text("No salons match the criteria"))
                   : ListView.builder(
                       itemCount: filteredSalons.length,
                       itemBuilder: (context, index) {
@@ -228,7 +228,7 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
       print('Error applying filters: $e');
       // Show error message if filters cannot be applied
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to apply filters')),
+        const SnackBar(content: Text('Failed to apply filters')),
       );
     }
   }

@@ -12,6 +12,7 @@ class SalonContainer extends StatelessWidget {
   final double rating;
   final Map<String, dynamic> salon;
   final String userId; // Add userId here
+  final double? distance; // Add the distance parameter
 
   const SalonContainer({
     required Key key,
@@ -19,6 +20,7 @@ class SalonContainer extends StatelessWidget {
     required this.rating,
     required this.salon,
     required this.userId, // Pass userId here
+    this.distance, // Add distance here
   }) : super(key: key);
 
   Future<void> _handleLocationPermission(BuildContext context) async {
@@ -212,6 +214,28 @@ class SalonContainer extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // Display the distance if provided
+                  if (distance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.directions_walk,
+                              color: Colors.grey, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${distance!.toStringAsFixed(2)} km away',
+                            style: GoogleFonts.abel(
+                              textStyle: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -8,6 +8,8 @@ import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
 import 'package:salon_hub/client/salonFiltering_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
+import 'package:geolocator/geolocator.dart'; // Import for geolocation
+import 'dart:math'; // Import for KNN-based distance calculations
 
 class SalonhomepageClient extends StatefulWidget {
   const SalonhomepageClient({super.key});
@@ -22,6 +24,11 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   String? _profileImageUrl;
   String? _userId;
   List<Map<String, dynamic>> _salons = [];
+  List<Map<String, dynamic>> _personalizedSalons = [];
+  List<Map<String, dynamic>> _nearbySalons = [];
+  bool _isLoadingPersonalized =
+      true; // To track loading of personalized recommendations
+  bool _isLoadingNearby = true; // To track loading of nearby salons
   int _selectedIndex = 0; // For Bottom Navigation
 
   @override
@@ -29,6 +36,8 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     super.initState();
     _checkAndLoadUserName(); // Load or prompt for user name
     _fetchSalons(); // Fetch salons from Firestore
+    _fetchPersonalizedSalons(); // Fetch personalized recommendations
+    _fetchNearbySalons(); // Fetch nearby salons
   }
 
   Future<void> _checkAndLoadUserName() async {
@@ -205,7 +214,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         return {
           'salon_id': doc.id,
           'salon_name': doc['salon_name'] ?? 'Unknown Salon',
-          'address': doc['address'] ?? 'No Address Available',
+          'address':
+              doc['address'] ?? 'No Address Available', // Fix for address
+          'latitude': doc['latitude'], // Add latitude
+          'longitude': doc['longitude'], // Add longitude
           'open_time': doc['open_time'] ?? 'Unknown',
           'close_time': doc['close_time'] ?? 'Unknown',
           'image_url': doc['image_url'] ?? '',
@@ -224,6 +236,134 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     }
   }
 
+  Future<void> _fetchPersonalizedSalons() async {
+    setState(() {
+      _isLoadingPersonalized = true; // Set loading state
+    });
+
+    const double maxDistance = 5.0; // Define max distance as 5 kilometers
+
+    try {
+      Position userLocation = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      List<Map<String, dynamic>> personalizedSalons = _salons.where((salon) {
+        double salonLat = salon['latitude'];
+        double salonLon = salon['longitude'];
+
+        // Calculate the distance between user and salon
+        double distance = _calculateDistance(
+            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+
+        // Filter salons based on the maximum distance
+        return distance <= maxDistance; // Only include salons within 5 km
+      }).map((salon) {
+        double salonLat = salon['latitude'];
+        double salonLon = salon['longitude'];
+
+        // Calculate the distance between user and salon
+        double distance = _calculateDistance(
+            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+
+        // Calculate service match score, for now we can leave this as 0
+        int serviceMatchScore = 0;
+
+        return {
+          ...salon,
+          'distance': distance, // Include distance in salon data
+          'serviceMatchScore': serviceMatchScore
+        };
+      }).toList();
+
+      // Sort based on the closest distance
+      personalizedSalons.sort((a, b) {
+        if (a['serviceMatchScore'] == b['serviceMatchScore']) {
+          return a['distance'].compareTo(b['distance']);
+        } else {
+          return b['serviceMatchScore'].compareTo(a['serviceMatchScore']);
+        }
+      });
+
+      setState(() {
+        _personalizedSalons = personalizedSalons;
+        _isLoadingPersonalized = false; // Done loading
+      });
+    } catch (e) {
+      print("Error fetching personalized salons: $e");
+      setState(() {
+        _isLoadingPersonalized = false; // Done loading
+      });
+    }
+  }
+
+  Future<void> _fetchNearbySalons() async {
+    setState(() {
+      _isLoadingNearby = true; // Set loading state
+    });
+
+    const double maxDistance = 5.0; // Define max distance as 5 kilometers
+
+    try {
+      Position userLocation = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      List<Map<String, dynamic>> nearbySalons = _salons.where((salon) {
+        double salonLat = salon['latitude'];
+        double salonLon = salon['longitude'];
+
+        // Calculate the distance between user and salon
+        double distance = _calculateDistance(
+            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+
+        // Filter salons based on the maximum distance
+        return distance <= maxDistance; // Only include salons within 5 km
+      }).map((salon) {
+        double salonLat = salon['latitude'];
+        double salonLon = salon['longitude'];
+
+        // Calculate the distance between user and salon
+        double distance = _calculateDistance(
+            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+
+        return {
+          ...salon,
+          'distance': distance // Include distance in salon data
+        };
+      }).toList();
+
+      // Sort based on the closest distance
+      nearbySalons.sort((a, b) {
+        return a['distance'].compareTo(b['distance']);
+      });
+
+      setState(() {
+        _nearbySalons = nearbySalons;
+        _isLoadingNearby = false; // Done loading
+      });
+    } catch (e) {
+      print("Error fetching nearby salons: $e");
+      setState(() {
+        _isLoadingNearby = false; // Done loading
+      });
+    }
+  }
+
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371; // Radius of Earth in kilometers
+    double dLat = _degToRad(lat2 - lat1);
+    double dLon = _degToRad(lon2 - lon1);
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degToRad(lat1)) *
+            cos(_degToRad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R * c;
+  }
+
+  double _degToRad(double deg) {
+    return deg * (pi / 180);
+  }
+
   void _onTabSelected(int index) {
     setState(() {
       _selectedIndex = index; // Update selected index for BottomNavigation
@@ -231,7 +371,9 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   }
 
   Future<void> _handleRefresh() async {
-    await _fetchSalons();
+    await _fetchPersonalizedSalons(); // Refresh the personalized salons
+    await _fetchNearbySalons(); // Refresh nearby salons
+    await _fetchSalons(); // Refresh all salons as well
   }
 
   @override
@@ -256,7 +398,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Removed the extra drawer icon here
             Center(
               child: Image.asset(
                 'assets/images/logo2.png', // Replace with your logo asset path
@@ -275,14 +416,36 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       ),
       body: _selectedIndex == 0
           ? _buildRecommendationsPage()
-          : _buildFilterPage(), // Conditionally render based on selected tab
+          : _selectedIndex == 1
+              ? _buildNearbyPage()
+              : _selectedIndex == 2
+                  ? _buildAllSalonsPage()
+                  : _buildFilterPage(), // Conditionally render based on selected tab
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onTabSelected, // Call method to change tabs
+        selectedItemColor:
+            Colors.white, // Set the selected item text color to white
+        unselectedItemColor:
+            Colors.white, // Make the unselected item color white too
+        backgroundColor:
+            const Color(0xff355E3B), // Set background color to simple green
+        type: BottomNavigationBarType
+            .fixed, // Ensures the items are displayed evenly
+        showSelectedLabels: true, // Show the label for selected item
+        showUnselectedLabels: true, // Show the label for unselected items
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.star),
             label: 'Recommendations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.near_me),
+            label: 'Nearby',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.store),
+            label: 'All Salons',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.filter_list),
@@ -293,6 +456,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     );
   }
 
+  // Build the recommendations page which includes personalized recommendations
   Widget _buildRecommendationsPage() {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
@@ -310,12 +474,116 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Welcome to SALON HUB!',
+                  'Here are your personalized salon recommendations:',
                   style: GoogleFonts.abel(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoadingPersonalized
+                ? const Center(
+                    child: CircularProgressIndicator()) // Show loading spinner
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: _personalizedSalons.length,
+                    itemBuilder: (context, index) {
+                      final salon = _personalizedSalons[index];
+                      final double rating = salon.containsKey('rating')
+                          ? salon['rating'].toDouble()
+                          : 0.0;
+                      final double distance = salon['distance'];
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5.0),
+                        child: SalonContainer(
+                          key: UniqueKey(),
+                          salonId: salon['salon_id'],
+                          rating: rating,
+                          salon: salon,
+                          userId: _userId ?? '', // Pass userId here
+                          distance: distance, // Pass the distance here
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build the nearby salons page
+  Widget _buildNearbyPage() {
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 15, bottom: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nearby Salons',
+                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoadingNearby
+                ? const Center(
+                    child: CircularProgressIndicator()) // Show loading spinner
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: _nearbySalons.length,
+                    itemBuilder: (context, index) {
+                      final salon = _nearbySalons[index];
+                      final double rating = salon.containsKey('rating')
+                          ? salon['rating'].toDouble()
+                          : 0.0;
+                      final double distance = salon['distance'];
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5.0),
+                        child: SalonContainer(
+                          key: UniqueKey(),
+                          salonId: salon['salon_id'],
+                          rating: rating,
+                          salon: salon,
+                          userId: _userId ?? '', // Pass userId here
+                          distance: distance, // Pass the distance here
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build the all salons page
+  Widget _buildAllSalonsPage() {
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 15, bottom: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'All Salons',
+                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
                 ),
               ],
             ),

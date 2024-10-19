@@ -72,7 +72,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                           .collection('salon')
                           .doc(currentSalonId)
                           .collection('appointments')
-                          .where('userId', isEqualTo: _currentUser!.uid)
+                          .where('userId', isEqualTo: _currentUser.uid)
                           .where('status', isEqualTo: 'Done')
                           .where('isReviewed', isEqualTo: false)
                           .snapshots(),
@@ -140,9 +140,9 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                                     ),
                                   ],
                                 ),
-                                trailing: Icon(
+                                trailing: const Icon(
                                   Icons.arrow_forward_ios,
-                                  color: const Color(0xff355E3B),
+                                  color: Color(0xff355E3B),
                                   size: 20,
                                 ),
                                 onTap: () async {
