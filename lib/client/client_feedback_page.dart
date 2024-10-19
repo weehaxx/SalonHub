@@ -21,8 +21,10 @@ class ClientFeedbackPage extends StatefulWidget {
 }
 
 class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
-  double _averageRating = 0.0;
-  int _totalReviews = 0;
+  double _averageAppointmentRating = 0.0;
+  double _averageWalkinRating = 0.0;
+  int _totalAppointmentReviews = 0;
+  int _totalWalkinReviews = 0;
   List<Map<String, dynamic>> _reviews = [];
   String _selectedReviewType = 'Appointments';
   int? _selectedStarFilter; // Star rating filter variable
@@ -46,7 +48,10 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
 
       if (snapshot.docs.isNotEmpty) {
         List<Map<String, dynamic>> fetchedReviews = [];
-        double totalRating = 0.0;
+        double totalAppointmentRating = 0.0;
+        double totalWalkinRating = 0.0;
+        int appointmentCount = 0;
+        int walkinCount = 0;
 
         for (var doc in snapshot.docs) {
           var data = doc.data() as Map<String, dynamic>;
@@ -62,8 +67,12 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             } else {
               service = 'N/A';
             }
+            totalAppointmentRating += data['rating'];
+            appointmentCount++;
           } else {
             service = data['service'] ?? 'N/A';
+            totalWalkinRating += data['rating'];
+            walkinCount++;
           }
 
           fetchedReviews.add({
@@ -76,15 +85,17 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             'isAppointmentReview': data['isAppointmentReview'],
             'upvotes': data['upvotes'] ?? 0,
           });
-
-          totalRating += data['rating'];
         }
 
         setState(() {
           _reviews = fetchedReviews;
-          _totalReviews = fetchedReviews.length;
-          _averageRating =
-              totalRating / _totalReviews; // Calculate overall rating
+          _totalAppointmentReviews = appointmentCount;
+          _totalWalkinReviews = walkinCount;
+          _averageAppointmentRating = appointmentCount > 0
+              ? totalAppointmentRating / appointmentCount
+              : 0.0;
+          _averageWalkinRating =
+              walkinCount > 0 ? totalWalkinRating / walkinCount : 0.0;
         });
       }
     } catch (e) {
@@ -113,14 +124,10 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     }
   }
 
-  // Method to handle upvote functionality
-  Future<void> _upvoteReview(String reviewId) async {
-    if (_upvotedReviews.contains(reviewId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can only upvote a review once!')),
-      );
-      return;
-    }
+  // Method to handle upvote/un-upvote functionality
+  Future<void> _toggleUpvoteReview(String reviewId) async {
+    bool hasUpvoted = _upvotedReviews.contains(reviewId);
+    int voteChange = hasUpvoted ? -1 : 1;
 
     try {
       DocumentReference reviewRef = FirebaseFirestore.instance
@@ -139,24 +146,29 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
         int currentUpvotes = data.containsKey('upvotes') ? data['upvotes'] : 0;
 
-        transaction.update(reviewRef, {'upvotes': currentUpvotes + 1});
+        transaction.update(reviewRef, {'upvotes': currentUpvotes + voteChange});
       });
 
       // Update user's upvote list
       DocumentReference userRef =
           FirebaseFirestore.instance.collection('users').doc(widget.userId);
 
-      await userRef.update({
-        'upvotedReviews': FieldValue.arrayUnion([reviewId]),
-      });
-
-      setState(() {
+      if (hasUpvoted) {
+        await userRef.update({
+          'upvotedReviews': FieldValue.arrayRemove([reviewId]),
+        });
+        _upvotedReviews.remove(reviewId);
+      } else {
+        await userRef.update({
+          'upvotedReviews': FieldValue.arrayUnion([reviewId]),
+        });
         _upvotedReviews.add(reviewId);
-      });
+      }
 
+      setState(() {});
       await _fetchReviews();
     } catch (e) {
-      print('Error upvoting review: $e');
+      print('Error toggling upvote: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to upvote the review: $e')),
       );
@@ -177,11 +189,30 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           .toList();
     }
 
-    // Filter by star rating
+    // Filter by rating ranges based on the selected filter
     if (_selectedStarFilter != null) {
-      filtered = filtered
-          .where((review) => review['rating'] == _selectedStarFilter)
-          .toList();
+      switch (_selectedStarFilter) {
+        case 1: // 1–2 stars: Low-rated
+          filtered = filtered
+              .where((review) => review['rating'] >= 1 && review['rating'] < 2)
+              .toList();
+          break;
+        case 2: // 2–3 stars: Average ratings
+          filtered = filtered
+              .where((review) => review['rating'] >= 2 && review['rating'] < 3)
+              .toList();
+          break;
+        case 3: // 3–4 stars: Above average
+          filtered = filtered
+              .where((review) => review['rating'] >= 3 && review['rating'] < 4)
+              .toList();
+          break;
+        case 4: // 4–5 stars: Highly rated
+          filtered = filtered
+              .where((review) => review['rating'] >= 4 && review['rating'] <= 5)
+              .toList();
+          break;
+      }
     }
 
     return filtered;
@@ -213,6 +244,19 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredReviews = _filteredReviews();
+    int maxUpvotes = filteredReviews.isNotEmpty
+        ? filteredReviews
+            .map((review) => review['upvotes'])
+            .reduce((value, element) => value > element ? value : element)
+        : 0;
+    final mostUpvotedReviews = filteredReviews
+        .where((review) => review['upvotes'] == maxUpvotes)
+        .toList();
+    final recentReviews = filteredReviews
+        .where((review) => !mostUpvotedReviews.contains(review))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -252,9 +296,78 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
               const SizedBox(height: 20),
               _buildReviewTypeButtons(),
               const SizedBox(height: 20),
-              _buildAverageRatingSection(),
-              const SizedBox(height: 30),
-              _buildReviewsSection(),
+
+              // Display average rating for Appointments
+              if (_selectedReviewType == 'Appointments') ...[
+                _buildAverageRatingSection(
+                    _averageAppointmentRating, _totalAppointmentReviews),
+                const SizedBox(height: 30),
+              ],
+
+              // Display average rating for Walk-ins
+              if (_selectedReviewType == 'Walk-ins') ...[
+                _buildAverageRatingSection(
+                    _averageWalkinRating, _totalWalkinReviews),
+                const SizedBox(height: 30),
+              ],
+
+              // Display active filter if any
+              if (_selectedStarFilter != null)
+                Text(
+                  '${_selectedStarFilter == 1 ? "1-2 Stars: Low-rated" : _selectedStarFilter == 2 ? "2-3 Stars: Average ratings" : _selectedStarFilter == 3 ? "3-4 Stars: Above average" : "4-5 Stars: Highly rated"} Reviews',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
+              // Display most upvoted reviews
+              if (mostUpvotedReviews.isNotEmpty) ...[
+                const Text(
+                  'Most Upvoted Review(s)',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: mostUpvotedReviews.length,
+                  itemBuilder: (context, index) {
+                    final review = mostUpvotedReviews[index];
+                    return _buildReviewItem(review);
+                  },
+                ),
+                const SizedBox(height: 30),
+              ],
+
+              // Display recent reviews
+              if (recentReviews.isNotEmpty) ...[
+                const Text(
+                  'Recent Reviews',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: recentReviews.length,
+                  itemBuilder: (context, index) {
+                    final review = recentReviews[index];
+                    return _buildReviewItem(review);
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -335,15 +448,15 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
       spacing: 8.0,
       runSpacing: 8.0,
       alignment: WrapAlignment.center,
-      children: List.generate(5, (index) {
-        return ElevatedButton(
+      children: [
+        ElevatedButton(
           onPressed: () {
             setState(() {
-              _selectedStarFilter = index + 1;
+              _selectedStarFilter = 1;
             });
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: _selectedStarFilter == index + 1
+            backgroundColor: _selectedStarFilter == 1
                 ? const Color(0xff355E3B)
                 : Colors.grey,
             shape: RoundedRectangleBorder(
@@ -352,43 +465,106 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
           child: Text(
-            '${index + 1} Star',
+            '1–2 Stars: Low-rated',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(color: Colors.white, fontSize: 16),
             ),
           ),
-        );
-      })
-        ..insert(
-            0,
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _selectedStarFilter =
-                      null; // Reset filter to show all reviews
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedStarFilter == null
-                    ? const Color(0xff355E3B)
-                    : Colors.grey,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedStarFilter = 2;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedStarFilter == 2
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: Text(
+            '2–3 Stars: Average ratings',
+            style: GoogleFonts.abel(
+              textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedStarFilter = 3;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedStarFilter == 3
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: Text(
+            '3–4 Stars: Above average',
+            style: GoogleFonts.abel(
+              textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedStarFilter = 4;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedStarFilter == 4
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: Text(
+            '4–5 Stars: Highly rated',
+            style: GoogleFonts.abel(
+              textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ),
+      ]..insert(
+          0,
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _selectedStarFilter = null; // Reset filter to show all reviews
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _selectedStarFilter == null
+                  ? const Color(0xff355E3B)
+                  : Colors.grey,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                'All',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(
+              'All',
+              style: GoogleFonts.abel(
+                textStyle: const TextStyle(color: Colors.white, fontSize: 16),
               ),
-            )),
+            ),
+          )),
     );
   }
 
-  Widget _buildAverageRatingSection() {
+  Widget _buildAverageRatingSection(double averageRating, int totalReviews) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xffDFF6DD),
@@ -410,7 +586,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           RatingBar.builder(
-            initialRating: _averageRating,
+            initialRating: averageRating,
             minRating: 1,
             direction: Axis.horizontal,
             allowHalfRating: true,
@@ -425,7 +601,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '${_averageRating.toStringAsFixed(1)} out of 5 stars based on $_totalReviews reviews',
+            '${averageRating.toStringAsFixed(1)} out of 5 stars based on $totalReviews reviews',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
                 fontSize: 16,
@@ -439,41 +615,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     );
   }
 
-  Widget _buildReviewsSection() {
-    final filteredReviews = _filteredReviews();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Reviews from Clients',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 20),
-        filteredReviews.isEmpty
-            ? const Center(
-                child: Text(
-                  'No reviews yet.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredReviews.length,
-                itemBuilder: (context, index) {
-                  final review = filteredReviews[index];
-                  return _buildReviewItem(review);
-                },
-              ),
-      ],
-    );
-  }
-
   Widget _buildReviewItem(Map<String, dynamic> review) {
+    bool hasUpvoted = _upvotedReviews.contains(review['id']);
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
       elevation: 3,
@@ -535,9 +678,11 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.thumb_up),
-                  color: Colors.grey,
-                  onPressed: () => _upvoteReview(review['id']),
+                  icon: Icon(
+                    Icons.thumb_up,
+                    color: hasUpvoted ? Colors.blue : Colors.grey,
+                  ),
+                  onPressed: () => _toggleUpvoteReview(review['id']),
                 ),
                 Text('${review['upvotes']}'),
                 const SizedBox(width: 10),
