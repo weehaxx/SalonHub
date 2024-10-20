@@ -4,12 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
+import 'package:salon_hub/client/components/nearby_salon_container.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
 import 'package:salon_hub/client/salonFiltering_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
 import 'package:geolocator/geolocator.dart'; // Import for geolocation
 import 'dart:math'; // Import for KNN-based distance calculations
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 
 class SalonhomepageClient extends StatefulWidget {
   const SalonhomepageClient({super.key});
@@ -241,47 +243,43 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       _isLoadingPersonalized = true; // Set loading state
     });
 
-    const double maxDistance = 5.0; // Define max distance as 5 kilometers
-
     try {
-      Position userLocation = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      List<Map<String, dynamic>> personalizedSalons = _salons.where((salon) {
-        double salonLat = salon['latitude'];
-        double salonLon = salon['longitude'];
+      // Fetch user's past appointments for relevance
+      QuerySnapshot pastAppointmentsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_userId)
+          .collection('appointments')
+          .get();
 
-        // Calculate the distance between user and salon
-        double distance = _calculateDistance(
-            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+      List<String> pastSalonIds = pastAppointmentsSnapshot.docs
+          .map((doc) => doc['salon_id'] as String)
+          .toList();
 
-        // Filter salons based on the maximum distance
-        return distance <= maxDistance; // Only include salons within 5 km
-      }).map((salon) {
-        double salonLat = salon['latitude'];
-        double salonLon = salon['longitude'];
+      // Initialize personalized salons list
+      List<Map<String, dynamic>> personalizedSalons = _salons.map((salon) {
+        // Safely get salon rating and reviews with default values
+        double rating = (salon['rating'] != null)
+            ? (salon['rating'] as num).toDouble() // Convert to double safely
+            : 0.0; // Default to 0.0 if null
 
-        // Calculate the distance between user and salon
-        double distance = _calculateDistance(
-            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
+        int reviews = (salon['total_reviews'] != null)
+            ? (salon['total_reviews'] as num).toInt() // Convert to int safely
+            : 0; // Default to 0 if null
 
-        // Calculate service match score, for now we can leave this as 0
-        int serviceMatchScore = 0;
+        // Check if the salon has been visited before (from past appointments)
+        bool isPastAppointment = pastSalonIds.contains(salon['salon_id']);
+
+        // Assign scores based on rating, reviews, and past appointments
+        double score = _calculateScore(rating, reviews, isPastAppointment);
 
         return {
           ...salon,
-          'distance': distance, // Include distance in salon data
-          'serviceMatchScore': serviceMatchScore
+          'score': score, // Include the score in the salon data
         };
       }).toList();
 
-      // Sort based on the closest distance
-      personalizedSalons.sort((a, b) {
-        if (a['serviceMatchScore'] == b['serviceMatchScore']) {
-          return a['distance'].compareTo(b['distance']);
-        } else {
-          return b['serviceMatchScore'].compareTo(a['serviceMatchScore']);
-        }
-      });
+      // Sort salons by their score (highest score first)
+      personalizedSalons.sort((a, b) => b['score'].compareTo(a['score']));
 
       setState(() {
         _personalizedSalons = personalizedSalons;
@@ -293,6 +291,16 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         _isLoadingPersonalized = false; // Done loading
       });
     }
+  }
+
+// Helper function to calculate the score
+  double _calculateScore(double rating, int reviews, bool isPastAppointment) {
+    double score = rating * 10; // Higher weight for rating
+    score += reviews; // Add reviews as a smaller weight
+    if (isPastAppointment) {
+      score += 50; // Give a large bonus for past appointments
+    }
+    return score;
   }
 
   Future<void> _fetchNearbySalons() async {
@@ -378,6 +386,14 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
   @override
   Widget build(BuildContext context) {
+    // Titles for each page
+    final List<String> _titles = [
+      'Recommended Salons',
+      'Nearby Salons',
+      'All Salons',
+      'Filter Salons',
+    ];
+
     return Scaffold(
       drawer: CustomDrawer(
         userName: _userName,
@@ -393,153 +409,133 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           );
         },
       ),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Container(
+        color: Colors.white,
+        child: Column(
           children: [
-            Center(
-              child: Image.asset(
-                'assets/images/logo2.png', // Replace with your logo asset path
-                height: 35,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications, color: Colors.black),
-              onPressed: () {
-                // Handle notifications onPressed
-              },
-            ),
-          ],
-        ),
-        elevation: 0, // Removes shadow for a clean look
-      ),
-      body: _selectedIndex == 0
-          ? _buildRecommendationsPage()
-          : _selectedIndex == 1
-              ? _buildNearbyPage()
-              : _selectedIndex == 2
-                  ? _buildAllSalonsPage()
-                  : _buildFilterPage(), // Conditionally render based on selected tab
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onTabSelected, // Call method to change tabs
-        selectedItemColor:
-            Colors.white, // Set the selected item text color to white
-        unselectedItemColor:
-            Colors.white, // Make the unselected item color white too
-        backgroundColor:
-            const Color(0xff355E3B), // Set background color to simple green
-        type: BottomNavigationBarType
-            .fixed, // Ensures the items are displayed evenly
-        showSelectedLabels: true, // Show the label for selected item
-        showUnselectedLabels: true, // Show the label for unselected items
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Recommendations',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.near_me),
-            label: 'Nearby',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: 'All Salons',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.filter_list),
-            label: 'Services Filter',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Build the recommendations page which includes personalized recommendations
-  Widget _buildRecommendationsPage() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 15, bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello ${_userName ?? 'User'},',
-                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Here are your personalized salon recommendations:',
-                  style: GoogleFonts.abel(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingPersonalized
-                ? const Center(
-                    child: CircularProgressIndicator()) // Show loading spinner
-                : ListView.builder(
-                    padding: EdgeInsets.zero,
-                    itemCount: _personalizedSalons.length,
-                    itemBuilder: (context, index) {
-                      final salon = _personalizedSalons[index];
-                      final double rating = salon.containsKey('rating')
-                          ? salon['rating'].toDouble()
-                          : 0.0;
-                      final double distance = salon['distance'];
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5.0),
-                        child: SalonContainer(
-                          key: UniqueKey(),
-                          salonId: salon['salon_id'],
-                          rating: rating,
-                          salon: salon,
-                          userId: _userId ?? '', // Pass userId here
-                          distance: distance, // Pass the distance here
-                        ),
+            // Custom "AppBar" with drawer and title in the body
+            Padding(
+              padding: const EdgeInsets.only(
+                  top: 30, left: 0, right: 0), // Adjust padding
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Custom drawer icon to open the drawer
+                  Builder(
+                    builder: (context) {
+                      return IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.black),
+                        onPressed: () {
+                          Scaffold.of(context).openDrawer(); // Open the drawer
+                        },
                       );
                     },
                   ),
-          ),
+                  Text(
+                    _titles[
+                        _selectedIndex], // Display title based on selected page
+                    style: GoogleFonts.abel(
+                      fontSize: 20,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.black),
+                    onPressed: () {
+                      // Handle notifications
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // Expanded widget to fill the remaining space with the body content
+            Expanded(
+              child: _selectedIndex == 0
+                  ? _buildRecommendationsPage()
+                  : _selectedIndex == 1
+                      ? _buildNearbyPage()
+                      : _selectedIndex == 2
+                          ? _buildAllSalonsPage()
+                          : _buildFilterPage(),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: CurvedNavigationBar(
+        backgroundColor: Colors.white,
+        color: const Color(0xff355E3B),
+        height: 60,
+        animationDuration: const Duration(milliseconds: 300),
+        onTap: _onTabSelected,
+        items: const <Widget>[
+          Icon(Icons.star, size: 30, color: Colors.white),
+          Icon(Icons.near_me, size: 30, color: Colors.white),
+          Icon(Icons.store, size: 30, color: Colors.white),
+          Icon(Icons.filter_list, size: 30, color: Colors.white),
         ],
       ),
     );
   }
 
-  // Build the nearby salons page
+// Build the recommendations page
+  Widget _buildRecommendationsPage() {
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: Container(
+        color: Colors.white, // Set the background color to white
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _isLoadingPersonalized
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator()) // Show loading spinner
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: _personalizedSalons.length,
+                      itemBuilder: (context, index) {
+                        final salon = _personalizedSalons[index];
+
+                        // Safely get rating
+                        final double rating = salon.containsKey('rating')
+                            ? (salon['rating'] ?? 0.0)
+                                .toDouble() // Default to 0.0
+                            : 0.0;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5.0),
+                          child: SalonContainer(
+                            key: UniqueKey(),
+                            salonId: salon['salon_id'],
+                            rating: rating,
+                            salon: salon,
+                            userId: _userId ?? '',
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+// Build the nearby salons page
   Widget _buildNearbyPage() {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 15, bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Nearby Salons',
-                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: _isLoadingNearby
                 ? const Center(
-                    child: CircularProgressIndicator()) // Show loading spinner
+                    child: CircularProgressIndicator(),
+                  )
                 : ListView.builder(
                     padding: EdgeInsets.zero,
                     itemCount: _nearbySalons.length,
@@ -552,13 +548,13 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 5.0),
-                        child: SalonContainer(
+                        child: NearbySalonContainer(
                           key: UniqueKey(),
                           salonId: salon['salon_id'],
                           rating: rating,
                           salon: salon,
-                          userId: _userId ?? '', // Pass userId here
-                          distance: distance, // Pass the distance here
+                          userId: _userId ?? '',
+                          distance: distance,
                         ),
                       );
                     },
@@ -569,25 +565,13 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     );
   }
 
-  // Build the all salons page
+// Build the all salons page
   Widget _buildAllSalonsPage() {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 15, bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'All Salons',
-                  style: GoogleFonts.abel(fontSize: 20, color: Colors.black),
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.zero,
@@ -605,7 +589,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
                     salonId: salon['salon_id'],
                     rating: rating,
                     salon: salon,
-                    userId: _userId ?? '', // Pass userId here
+                    userId: _userId ?? '',
                   ),
                 );
               },
@@ -632,6 +616,55 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       context,
       MaterialPageRoute(
         builder: (context) => const Login(),
+      ),
+    );
+  }
+
+  Widget _buildCurvedBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xff355E3B),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(30),
+          topLeft: Radius.circular(30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onTabSelected,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withOpacity(0.6),
+        showSelectedLabels: true,
+        showUnselectedLabels: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.star),
+            label: 'Recommendations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.near_me),
+            label: 'Nearby',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.store),
+            label: 'All Salons',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.filter_list),
+            label: 'Filter',
+          ),
+        ],
       ),
     );
   }
