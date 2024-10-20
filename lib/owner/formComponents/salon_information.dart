@@ -12,7 +12,6 @@ class SalonInformationForm extends StatefulWidget {
   final TextEditingController openTimeController;
   final TextEditingController closeTimeController;
 
-  // Add these two properties to pass latitude and longitude back
   final Function(double?, double?) onLocationSelected;
 
   const SalonInformationForm({
@@ -22,7 +21,7 @@ class SalonInformationForm extends StatefulWidget {
     required this.addressController,
     required this.openTimeController,
     required this.closeTimeController,
-    required this.onLocationSelected, // Pass the location callback
+    required this.onLocationSelected,
   });
 
   @override
@@ -32,19 +31,18 @@ class SalonInformationForm extends StatefulWidget {
 class _SalonInformationFormState extends State<SalonInformationForm> {
   bool _isLoading = true;
   LatLng? _currentLocation;
+  LatLng? _selectedLocation;
   GoogleMapController? _mapController;
 
-  // Marker set to show on the map
   final Set<Marker> _markers = {};
 
   @override
   void initState() {
     super.initState();
     _fetchSalonData();
-    _checkLocationPermission(); // Automatically check for location permission on load
+    _checkLocationPermission();
   }
 
-  // Async method to fetch salon data from Firestore
   Future<void> _fetchSalonData() async {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null) {
@@ -69,7 +67,6 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     }
   }
 
-  // Function to check location permission and fetch current location
   Future<void> _checkLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied ||
@@ -79,30 +76,33 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
 
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
-      // If permission is granted, get the current position
       _locateMyPosition();
     }
   }
 
-  // Function to automatically locate and display the current position
   Future<void> _locateMyPosition() async {
     try {
       Position position = await Geolocator.getCurrentPosition();
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
-      // Move the camera to the new location
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(currentLatLng, 14.0),
       );
 
-      // Update the marker on the map
       setState(() {
         _currentLocation = currentLatLng;
+        _selectedLocation = currentLatLng;
         _markers.clear();
         _markers.add(Marker(
           markerId: const MarkerId('currentLocation'),
           position: currentLatLng,
-          infoWindow: const InfoWindow(title: 'Current Location'),
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              _selectedLocation = newPosition;
+            });
+          },
+          infoWindow: const InfoWindow(title: 'Drag to Set Location'),
         ));
       });
     } catch (e) {
@@ -110,23 +110,81 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     }
   }
 
-  // Function to save the current location when clicking the "Next" button
+  // Open the full-screen map to select location
+  void _onMapTap(LatLng tappedPoint) {
+    _openFullMap();
+  }
+
+  Future<void> _openFullMap() async {
+    LatLng? pickedLocation = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenMap(
+          initialPosition:
+              _selectedLocation ?? _currentLocation ?? const LatLng(0, 0),
+        ),
+      ),
+    );
+
+    if (pickedLocation != null) {
+      setState(() {
+        _selectedLocation = pickedLocation;
+        _markers.clear();
+        _markers.add(Marker(
+          markerId: const MarkerId('selectedLocation'),
+          position: pickedLocation,
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              _selectedLocation = newPosition;
+            });
+          },
+          infoWindow: const InfoWindow(title: 'Drag to Set Location'),
+        ));
+
+        // Update the camera position on the small map to reflect the selected location
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(pickedLocation, 14.0),
+        );
+      });
+    }
+  }
+
   Future<void> _submitMyLocation() async {
     try {
-      if (_currentLocation != null) {
+      if (_selectedLocation != null) {
         final User? currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null) {
           await FirebaseFirestore.instance
               .collection('users')
               .doc(currentUser.uid)
               .update({
-            'latitude': _currentLocation!.latitude,
-            'longitude': _currentLocation!.longitude,
+            'latitude': _selectedLocation!.latitude,
+            'longitude': _selectedLocation!.longitude,
           });
 
-          // Pass the latitude and longitude back to form_owner.dart
           widget.onLocationSelected(
-              _currentLocation!.latitude, _currentLocation!.longitude);
+              _selectedLocation!.latitude, _selectedLocation!.longitude);
+
+          // After submitting, update the map marker and camera position
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
+          );
+
+          setState(() {
+            _markers.clear();
+            _markers.add(Marker(
+              markerId: const MarkerId('selectedLocation'),
+              position: _selectedLocation!,
+              draggable: true,
+              onDragEnd: (newPosition) {
+                setState(() {
+                  _selectedLocation = newPosition;
+                });
+              },
+              infoWindow: const InfoWindow(title: 'Submitted Location'),
+            ));
+          });
         }
       }
     } catch (e) {
@@ -173,25 +231,22 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
                         _buildTextField(
                             'Address', widget.addressController, false),
                         const SizedBox(height: 15),
-                        // Display the Google Map automatically without any button
                         _buildGoogleMap(),
                         const SizedBox(height: 15),
                       ],
                     ),
                   ),
-                  // Centered "Submit My Location" button with custom design
                   Center(
                     child: ElevatedButton(
                       onPressed: _submitMyLocation,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xff355E3B), // Button color
+                        backgroundColor: const Color(0xff355E3B),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 50, vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 5, // Shadow effect
+                        elevation: 5,
                       ),
                       child: Text(
                         'Submit My Location',
@@ -212,7 +267,6 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     );
   }
 
-  // Function to build a text field
   Widget _buildTextField(
       String label, TextEditingController controller, bool readOnly) {
     return Padding(
@@ -235,7 +289,6 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     );
   }
 
-  // Function to build a time picker field
   Widget _buildTimePickerField(
       String label, TextEditingController controller, BuildContext context) {
     return GestureDetector(
@@ -268,7 +321,6 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     );
   }
 
-  // Function to build the Google Map
   Widget _buildGoogleMap() {
     return SizedBox(
       height: 300,
@@ -280,12 +332,76 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
                 ?.moveCamera(CameraUpdate.newLatLng(_currentLocation!));
           }
         },
+        onTap: _onMapTap, // Directly call the _onMapTap method
         initialCameraPosition: CameraPosition(
-          target: _currentLocation ?? const LatLng(0, 0), // Default position
+          target: _currentLocation ?? const LatLng(0, 0),
           zoom: 14,
         ),
-        markers: _markers, // Use the updated markers set
-        myLocationEnabled: false, // Disable automatic location marker
+        markers: _markers,
+        myLocationEnabled: false,
+      ),
+    );
+  }
+}
+
+class FullScreenMap extends StatefulWidget {
+  final LatLng initialPosition;
+
+  const FullScreenMap({
+    Key? key,
+    required this.initialPosition,
+  }) : super(key: key);
+
+  @override
+  _FullScreenMapState createState() => _FullScreenMapState();
+}
+
+class _FullScreenMapState extends State<FullScreenMap> {
+  LatLng? _selectedLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Select Location'),
+        backgroundColor: const Color(0xff355E3B),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, _selectedLocation);
+            },
+            child: const Text(
+              'Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      body: GoogleMap(
+        onMapCreated: (GoogleMapController controller) {},
+        onTap: (tappedPoint) {
+          setState(() {
+            _selectedLocation = tappedPoint;
+          });
+        },
+        initialCameraPosition: CameraPosition(
+          target: widget.initialPosition,
+          zoom: 14,
+        ),
+        markers: _selectedLocation != null
+            ? {
+                Marker(
+                  markerId: const MarkerId('selectedLocation'),
+                  position: _selectedLocation!,
+                  draggable: true,
+                  onDragEnd: (newPosition) {
+                    setState(() {
+                      _selectedLocation = newPosition;
+                    });
+                  },
+                ),
+              }
+            : {},
       ),
     );
   }
