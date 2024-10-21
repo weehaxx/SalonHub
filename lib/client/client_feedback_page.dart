@@ -617,6 +617,11 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
 
   Widget _buildReviewItem(Map<String, dynamic> review) {
     bool hasUpvoted = _upvotedReviews.contains(review['id']);
+    String comment = review['review'];
+
+    // Determine font size based on comment length
+    double fontSize = _getFontSizeForComment(comment.length);
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
       elevation: 3,
@@ -676,25 +681,31 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             ),
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.thumb_up,
-                    color: hasUpvoted ? Colors.blue : Colors.grey,
-                  ),
-                  onPressed: () => _toggleUpvoteReview(review['id']),
+                Column(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.thumb_up,
+                        color: hasUpvoted ? Colors.blue : Colors.grey,
+                      ),
+                      onPressed: () => _toggleUpvoteReview(review['id']),
+                    ),
+                    Text('${review['upvotes']}'),
+                  ],
                 ),
-                Text('${review['upvotes']}'),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    review['review'],
+                    comment,
                     style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 14,
+                      textStyle: TextStyle(
+                        fontSize: fontSize, // Adjust font size based on length
                         color: Colors.black87,
                       ),
                     ),
+                    overflow: TextOverflow.visible,
                   ),
                 ),
               ],
@@ -703,5 +714,16 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         ),
       ),
     );
+  }
+
+// A function to calculate font size based on comment length
+  double _getFontSizeForComment(int length) {
+    if (length < 50) {
+      return 16.0; // Large font for short comments
+    } else if (length < 100) {
+      return 14.0; // Medium font for moderate comments
+    } else {
+      return 12.0; // Smaller font for long comments
+    }
   }
 }
