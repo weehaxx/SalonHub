@@ -384,6 +384,36 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     await _fetchSalons(); // Refresh all salons as well
   }
 
+  Future<bool> _showLogoutConfirmation() async {
+    return await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(
+              'Logout',
+              style: GoogleFonts.abel(fontWeight: FontWeight.bold),
+            ),
+            content: const Text('Are you sure you want to log out?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context)
+                      .pop(false); // Dismiss the dialog, don't log out
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _logout(); // Call logout method
+                },
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+        ) ??
+        false; // Return false if the dialog is dismissed without any selection
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
     // Titles for each page
@@ -394,87 +424,93 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       'Filter Salons',
     ];
 
-    return Scaffold(
-      drawer: CustomDrawer(
-        userName: _userName,
-        userEmail: _userEmail,
-        profileImageUrl: _profileImageUrl,
-        onLogout: _logout,
-        onReviewExperience: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ReviewExperiencePage(),
-            ),
-          );
-        },
-      ),
-      body: Container(
-        color: Colors.white,
-        child: Column(
-          children: [
-            // Custom "AppBar" with drawer and title in the body
-            Padding(
-              padding: const EdgeInsets.only(
-                  top: 30, left: 0, right: 0), // Adjust padding
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Custom drawer icon to open the drawer
-                  Builder(
-                    builder: (context) {
-                      return IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.black),
-                        onPressed: () {
-                          Scaffold.of(context).openDrawer(); // Open the drawer
-                        },
-                      );
-                    },
-                  ),
-                  Text(
-                    _titles[
-                        _selectedIndex], // Display title based on selected page
-                    style: GoogleFonts.abel(
-                      fontSize: 20,
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications, color: Colors.black),
-                    onPressed: () {
-                      // Handle notifications
-                    },
-                  ),
-                ],
+    return WillPopScope(
+      onWillPop:
+          _showLogoutConfirmation, // Trigger the confirmation dialog on back press
+      child: Scaffold(
+        drawer: CustomDrawer(
+          userName: _userName,
+          userEmail: _userEmail,
+          profileImageUrl: _profileImageUrl,
+          onLogout: _logout,
+          onReviewExperience: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ReviewExperiencePage(),
               ),
-            ),
+            );
+          },
+        ),
+        body: Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              // Custom "AppBar" with drawer and title in the body
+              Padding(
+                padding: const EdgeInsets.only(
+                    top: 30, left: 0, right: 0), // Adjust padding
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Custom drawer icon to open the drawer
+                    Builder(
+                      builder: (context) {
+                        return IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.black),
+                          onPressed: () {
+                            Scaffold.of(context)
+                                .openDrawer(); // Open the drawer
+                          },
+                        );
+                      },
+                    ),
+                    Text(
+                      _titles[
+                          _selectedIndex], // Display title based on selected page
+                      style: GoogleFonts.abel(
+                        fontSize: 20,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon:
+                          const Icon(Icons.notifications, color: Colors.black),
+                      onPressed: () {
+                        // Handle notifications
+                      },
+                    ),
+                  ],
+                ),
+              ),
 
-            // Expanded widget to fill the remaining space with the body content
-            Expanded(
-              child: _selectedIndex == 0
-                  ? _buildRecommendationsPage()
-                  : _selectedIndex == 1
-                      ? _buildNearbyPage()
-                      : _selectedIndex == 2
-                          ? _buildAllSalonsPage()
-                          : _buildFilterPage(),
-            ),
+              // Expanded widget to fill the remaining space with the body content
+              Expanded(
+                child: _selectedIndex == 0
+                    ? _buildRecommendationsPage()
+                    : _selectedIndex == 1
+                        ? _buildNearbyPage()
+                        : _selectedIndex == 2
+                            ? _buildAllSalonsPage()
+                            : _buildFilterPage(),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: CurvedNavigationBar(
+          backgroundColor: Colors.white,
+          color: const Color(0xff355E3B),
+          height: 60,
+          animationDuration: const Duration(milliseconds: 300),
+          onTap: _onTabSelected,
+          items: const <Widget>[
+            Icon(Icons.star, size: 30, color: Colors.white),
+            Icon(Icons.near_me, size: 30, color: Colors.white),
+            Icon(Icons.store, size: 30, color: Colors.white),
+            Icon(Icons.filter_list, size: 30, color: Colors.white),
           ],
         ),
-      ),
-      bottomNavigationBar: CurvedNavigationBar(
-        backgroundColor: Colors.white,
-        color: const Color(0xff355E3B),
-        height: 60,
-        animationDuration: const Duration(milliseconds: 300),
-        onTap: _onTabSelected,
-        items: const <Widget>[
-          Icon(Icons.star, size: 30, color: Colors.white),
-          Icon(Icons.near_me, size: 30, color: Colors.white),
-          Icon(Icons.store, size: 30, color: Colors.white),
-          Icon(Icons.filter_list, size: 30, color: Colors.white),
-        ],
       ),
     );
   }

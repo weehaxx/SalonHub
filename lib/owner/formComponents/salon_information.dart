@@ -166,6 +166,14 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
           widget.onLocationSelected(
               _selectedLocation!.latitude, _selectedLocation!.longitude);
 
+          // Show a confirmation message after successfully saving
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location successfully saved!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
           // After submitting, update the map marker and camera position
           _mapController?.animateCamera(
             CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
@@ -189,6 +197,12 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
       }
     } catch (e) {
       print('Error submitting location: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save location. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
