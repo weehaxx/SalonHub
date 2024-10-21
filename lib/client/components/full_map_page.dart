@@ -112,19 +112,31 @@ class _FullMapPageState extends State<FullMapPage> {
 
   // Adjust the map to fit both locations
   void _fitMapToBounds() {
-    LatLngBounds bounds;
-    if (widget.userLocation.latitude > widget.salonLocation.latitude &&
-        widget.userLocation.longitude > widget.salonLocation.longitude) {
-      bounds = LatLngBounds(
-        southwest: widget.salonLocation,
-        northeast: widget.userLocation,
-      );
+    LatLng southwest;
+    LatLng northeast;
+
+    // Determine the southwest and northeast corners based on latitude and longitude
+    if (widget.userLocation.latitude < widget.salonLocation.latitude) {
+      southwest = widget.userLocation;
+      northeast = widget.salonLocation;
     } else {
-      bounds = LatLngBounds(
-        southwest: widget.userLocation,
-        northeast: widget.salonLocation,
-      );
+      southwest = widget.salonLocation;
+      northeast = widget.userLocation;
     }
+
+    if (widget.userLocation.longitude < widget.salonLocation.longitude) {
+      southwest = LatLng(southwest.latitude, widget.userLocation.longitude);
+      northeast = LatLng(northeast.latitude, widget.salonLocation.longitude);
+    } else {
+      southwest = LatLng(southwest.latitude, widget.salonLocation.longitude);
+      northeast = LatLng(northeast.latitude, widget.userLocation.longitude);
+    }
+
+    LatLngBounds bounds = LatLngBounds(
+      southwest: southwest,
+      northeast: northeast,
+    );
+
     _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
   }
 
