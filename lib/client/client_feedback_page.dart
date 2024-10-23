@@ -57,7 +57,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           var data = doc.data() as Map<String, dynamic>;
           var timestamp = (data['timestamp'] as Timestamp).toDate().toLocal();
           var formattedDate =
-              '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
+              '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}' ??
+                  '';
 
           String service = '';
           if (data['isAppointmentReview'] == true) {

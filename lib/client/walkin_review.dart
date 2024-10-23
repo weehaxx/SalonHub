@@ -178,7 +178,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
 
       final reviewsRef = FirebaseFirestore.instance
           .collection('salon')
-          .doc(widget.salonId)
+          .doc(widget.salonId) // Add the salonId here
           .collection('reviews');
 
       if (_reviewId != null) {
@@ -188,6 +188,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           'review': _reviewController.text,
           'timestamp': Timestamp.now(),
           'service': _selectedService ?? 'Unknown Service',
+          'salonId': widget.salonId, // Ensure salonId is included
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -203,6 +204,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           'userId': user.uid,
           'userName': userName,
           'service': _selectedService ?? 'Unknown Service',
+          'salonId': widget.salonId, // Ensure salonId is included
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
