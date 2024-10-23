@@ -588,41 +588,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     );
   }
 
-// Build the all salons page
-  Widget _buildAllSalonsPage() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: _salons.length,
-              itemBuilder: (context, index) {
-                final salon = _salons[index];
-                final double rating = salon.containsKey('rating')
-                    ? salon['rating'].toDouble()
-                    : 0.0;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5.0),
-                  child: SalonContainer(
-                    key: UniqueKey(),
-                    salonId: salon['salon_id'],
-                    rating: rating,
-                    salon: salon,
-                    userId: _userId ?? '',
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFilterPage() {
     return SalonFilterPage(
       onFilterApplied: (filteredSalons) {

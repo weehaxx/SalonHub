@@ -167,6 +167,7 @@ class _FormOwnerState extends State<FormOwner> {
     String? contactInfo = paymentMethodFormState?.contactInfo;
     File? qrCodeImage = paymentMethodFormState?.selectedQrCodeImage;
 
+    // Check if all required fields are filled
     if (_salonNameController.text.isEmpty ||
         _salonOwnerController.text.isEmpty ||
         _addressController.text.isEmpty ||
@@ -198,11 +199,12 @@ class _FormOwnerState extends State<FormOwner> {
 
       // Prepare salon data
       Map<String, dynamic> salonData = {
-        'salon_name': _salonNameController.text,
-        'owner_name': _salonOwnerController.text,
-        'address': _addressController.text,
-        'open_time': _openTimeController.text,
-        'close_time': _closeTimeController.text,
+        'salon_name': _salonNameController.text
+            .trim(), // Trim text to avoid leading/trailing spaces
+        'owner_name': _salonOwnerController.text.trim(),
+        'address': _addressController.text.trim(),
+        'open_time': _openTimeController.text.trim(),
+        'close_time': _closeTimeController.text.trim(),
         'image_url': imageUrl,
         'latitude': _latitude,
         'longitude': _longitude,
@@ -219,7 +221,8 @@ class _FormOwnerState extends State<FormOwner> {
       // Save the salon data to Firestore
       DocumentReference salonRef =
           FirebaseFirestore.instance.collection('salon').doc(currentUser!.uid);
-      await salonRef.set(salonData);
+      await salonRef
+          .set(salonData); // Make sure this line is successfully called
 
       // Save payment method data
       await salonRef.collection('payment_methods').add(paymentData);
