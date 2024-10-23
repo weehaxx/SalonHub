@@ -414,19 +414,15 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    // Titles for each page
     final List<String> _titles = [
-      'Recommended Salons',
+      'Recommended For You',
       'Nearby Salons',
-      'All Salons',
       'Filter Salons',
     ];
 
     return WillPopScope(
-      onWillPop:
-          _showLogoutConfirmation, // Trigger the confirmation dialog on back press
+      onWillPop: _showLogoutConfirmation,
       child: Scaffold(
         drawer: CustomDrawer(
           userName: _userName,
@@ -443,31 +439,26 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           },
         ),
         body: Container(
-          color: Colors.white,
+          color: Color(0xfffaf9f6),
           child: Column(
             children: [
-              // Custom "AppBar" with drawer and title in the body
               Padding(
-                padding: const EdgeInsets.only(
-                    top: 30, left: 0, right: 0), // Adjust padding
+                padding: const EdgeInsets.only(top: 30, left: 0, right: 0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Custom drawer icon to open the drawer
                     Builder(
                       builder: (context) {
                         return IconButton(
                           icon: const Icon(Icons.menu, color: Colors.black),
                           onPressed: () {
-                            Scaffold.of(context)
-                                .openDrawer(); // Open the drawer
+                            Scaffold.of(context).openDrawer();
                           },
                         );
                       },
                     ),
                     Text(
-                      _titles[
-                          _selectedIndex], // Display title based on selected page
+                      _titles[_selectedIndex],
                       style: GoogleFonts.abel(
                         fontSize: 20,
                         color: Colors.black,
@@ -484,16 +475,12 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
                   ],
                 ),
               ),
-
-              // Expanded widget to fill the remaining space with the body content
               Expanded(
                 child: _selectedIndex == 0
                     ? _buildRecommendationsPage()
                     : _selectedIndex == 1
                         ? _buildNearbyPage()
-                        : _selectedIndex == 2
-                            ? _buildAllSalonsPage()
-                            : _buildFilterPage(),
+                        : _buildFilterPage(),
               ),
             ],
           ),
@@ -505,10 +492,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           animationDuration: const Duration(milliseconds: 300),
           onTap: _onTabSelected,
           items: const <Widget>[
-            Icon(Icons.star, size: 30, color: Colors.white),
-            Icon(Icons.near_me, size: 30, color: Colors.white),
-            Icon(Icons.store, size: 30, color: Colors.white),
-            Icon(Icons.filter_list, size: 30, color: Colors.white),
+            Icon(Icons.star, size: 30, color: Colors.white), // Recommendations
+            Icon(Icons.near_me, size: 30, color: Colors.white), // Nearby Salons
+            Icon(Icons.filter_list,
+                size: 30, color: Colors.white), // Filter Salons
           ],
         ),
       ),
@@ -520,7 +507,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       child: Container(
-        color: Colors.white, // Set the background color to white
+        color: Color(0xfffaf9f6), // Set the background color to white
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
