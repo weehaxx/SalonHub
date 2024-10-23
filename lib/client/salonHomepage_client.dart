@@ -216,10 +216,9 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         return {
           'salon_id': doc.id,
           'salon_name': doc['salon_name'] ?? 'Unknown Salon',
-          'address':
-              doc['address'] ?? 'No Address Available', // Fix for address
-          'latitude': doc['latitude'], // Add latitude
-          'longitude': doc['longitude'], // Add longitude
+          'address': doc['address'] ?? 'No Address Available',
+          'latitude': doc['latitude'],
+          'longitude': doc['longitude'],
           'open_time': doc['open_time'] ?? 'Unknown',
           'close_time': doc['close_time'] ?? 'Unknown',
           'image_url': doc['image_url'] ?? '',
@@ -230,6 +229,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         };
       }).toList());
 
+      if (!mounted) return; // Ensure the widget is still mounted
       setState(() {
         _salons = salons;
       });
@@ -255,40 +255,49 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           .map((doc) => doc['salon_id'] as String)
           .toList();
 
-      // Initialize personalized salons list
-      List<Map<String, dynamic>> personalizedSalons = _salons.map((salon) {
-        // Safely get salon rating and reviews with default values
+      // Filter the salons based on rating >= 4 or reviews >= 5
+      List<Map<String, dynamic>> filteredSalons = _salons.where((salon) {
+        double rating = salon.containsKey('rating')
+            ? (salon['rating'] as num).toDouble()
+            : 0.0;
+        int totalReviews = salon.containsKey('total_reviews')
+            ? (salon['total_reviews'] as num).toInt()
+            : 0;
+
+        return (rating >= 4.0) || (totalReviews >= 5);
+      }).toList();
+
+      List<Map<String, dynamic>> personalizedSalons =
+          filteredSalons.map((salon) {
         double rating = (salon['rating'] != null)
-            ? (salon['rating'] as num).toDouble() // Convert to double safely
-            : 0.0; // Default to 0.0 if null
+            ? (salon['rating'] as num).toDouble()
+            : 0.0;
 
         int reviews = (salon['total_reviews'] != null)
-            ? (salon['total_reviews'] as num).toInt() // Convert to int safely
-            : 0; // Default to 0 if null
+            ? (salon['total_reviews'] as num).toInt()
+            : 0;
 
-        // Check if the salon has been visited before (from past appointments)
         bool isPastAppointment = pastSalonIds.contains(salon['salon_id']);
-
-        // Assign scores based on rating, reviews, and past appointments
         double score = _calculateScore(rating, reviews, isPastAppointment);
 
         return {
           ...salon,
-          'score': score, // Include the score in the salon data
+          'score': score,
         };
       }).toList();
 
-      // Sort salons by their score (highest score first)
       personalizedSalons.sort((a, b) => b['score'].compareTo(a['score']));
 
+      if (!mounted) return; // Ensure the widget is still mounted
       setState(() {
         _personalizedSalons = personalizedSalons;
-        _isLoadingPersonalized = false; // Done loading
+        _isLoadingPersonalized = false;
       });
     } catch (e) {
       print("Error fetching personalized salons: $e");
+      if (!mounted) return; // Ensure the widget is still mounted
       setState(() {
-        _isLoadingPersonalized = false; // Done loading
+        _isLoadingPersonalized = false;
       });
     }
   }

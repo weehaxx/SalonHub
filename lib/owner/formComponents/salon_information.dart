@@ -52,6 +52,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
             .doc(currentUser.uid)
             .get();
         if (userDoc.exists) {
+          if (!mounted) return; // Check if the widget is still mounted
           setState(() {
             widget.salonNameController.text = userDoc['salon_name'] ?? '';
             widget.salonOwnerController.text = userDoc['owner_name'] ?? '';
@@ -60,6 +61,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
         }
       } catch (e) {
         print('Error fetching salon data: $e');
+        if (!mounted) return; // Check if the widget is still mounted
         setState(() {
           _isLoading = false;
         });
@@ -85,10 +87,12 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
       Position position = await Geolocator.getCurrentPosition();
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
+      if (!mounted) return; // Check if the widget is still mounted
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(currentLatLng, 14.0),
       );
 
+      if (!mounted) return; // Check if the widget is still mounted
       setState(() {
         _currentLocation = currentLatLng;
         _selectedLocation = currentLatLng;
