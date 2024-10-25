@@ -65,6 +65,24 @@ class _AddServicePageState extends State<AddServicePage> {
     }
   }
 
+  Future<void> _createLog(String actionType, String description) async {
+    if (_salonDocId != null) {
+      try {
+        await _firestore
+            .collection('salon')
+            .doc(_salonDocId)
+            .collection('logs')
+            .add({
+          'actionType': actionType,
+          'description': description,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        print('Error creating log: $e');
+      }
+    }
+  }
+
   void _toggleFormVisibility() {
     setState(() {
       if (_isFormVisible) {
@@ -124,6 +142,9 @@ class _AddServicePageState extends State<AddServicePage> {
           content: Text('Service deleted successfully!'),
         ),
       );
+
+      // Create log entry for deletion
+      await _createLog('Delete Service', 'Deleted service $serviceName');
     }
   }
 
@@ -138,6 +159,7 @@ class _AddServicePageState extends State<AddServicePage> {
 
         if (user != null && _salonDocId != null) {
           if (_editingServiceId == null) {
+            // Adding new service
             await _firestore
                 .collection('salon')
                 .doc(_salonDocId)
@@ -151,7 +173,20 @@ class _AddServicePageState extends State<AddServicePage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Service added successfully!')),
             );
+
+            // Log the service addition
+            await _createLog('Add Service',
+                'Added service $serviceName with price $price and category $category');
           } else {
+            // Updating existing service
+            final serviceDoc = await _firestore
+                .collection('salon')
+                .doc(_salonDocId)
+                .collection('services')
+                .doc(_editingServiceId)
+                .get();
+            final oldData = serviceDoc.data();
+
             await _firestore
                 .collection('salon')
                 .doc(_salonDocId)
@@ -170,6 +205,25 @@ class _AddServicePageState extends State<AddServicePage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Service updated successfully!')),
             );
+
+            // Log the service update with detailed changes
+            String logDescription =
+                'Updated service with the following changes:';
+            if (oldData != null) {
+              if (oldData['name'] != serviceName) {
+                logDescription +=
+                    ' name changed from "${oldData['name']}" to "$serviceName".';
+              }
+              if (oldData['price'] != price) {
+                logDescription +=
+                    ' price changed from ${oldData['price']} to $price.';
+              }
+              if (oldData['category'] != category) {
+                logDescription +=
+                    ' category changed from ${oldData['category']} to $category.';
+              }
+            }
+            await _createLog('Update Service', logDescription);
           }
 
           _toggleFormVisibility();
@@ -272,7 +326,6 @@ class _AddServicePageState extends State<AddServicePage> {
                               }
 
                               final services = snapshot.data?.docs ?? [];
-
                               final filteredServices =
                                   services.where((service) {
                                 final serviceName =
@@ -288,8 +341,7 @@ class _AddServicePageState extends State<AddServicePage> {
 
                               if (filteredServices.isEmpty) {
                                 return const Center(
-                                  child: Text('No services found.'),
-                                );
+                                    child: Text('No services found.'));
                               }
 
                               Map<String, List<DocumentSnapshot>>

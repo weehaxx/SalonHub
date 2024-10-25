@@ -3,12 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import 'package:salon_hub/owner/Logs_page.dart';
+import 'package:salon_hub/owner/Reviews_Page.dart';
 import 'package:salon_hub/owner/accepted_appointments.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
 import 'package:salon_hub/owner/paid_appointments.dart';
 import 'package:salon_hub/owner/pendingappointment.dart';
-import 'package:salon_hub/owner/reschedule_page.dart'; // Import the reschedule page
-import 'package:salon_hub/owner/cancellation_page.dart'; // Import the cancellation page
+import 'package:salon_hub/owner/reschedule_page.dart';
+import 'package:salon_hub/owner/cancellation_page.dart';
 import 'package:salon_hub/owner/salonInfo_owner.dart';
 import 'package:salon_hub/owner/service_add.dart';
 import 'package:salon_hub/pages/login_page.dart';
@@ -26,7 +28,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   int acceptedAppointmentsCount = 0;
   int paidAppointmentsTodayCount = 0;
   int rescheduleCount = 0;
-  int cancellationCount = 0; // Add this variable for cancellation count
+  int cancellationCount = 0;
   String salonName = "Salon Name";
   String ownerName = "Owner Name";
 
@@ -37,7 +39,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     fetchSalonDetails();
     fetchPaidAppointmentsTodayCount();
     fetchRescheduleCount();
-    fetchCancellationCount(); // Fetch cancellation count
+    fetchCancellationCount();
   }
 
   Future<void> fetchSalonDetails() async {
@@ -83,31 +85,26 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     }
   }
 
-  // Fetch the count of paid appointments for today
   Future<void> fetchPaidAppointmentsTodayCount() async {
     try {
-      String todayDate =
-          DateFormat('yyyy-MM-dd').format(DateTime.now()); // Get today's date
+      String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final paidQuerySnapshot = await FirebaseFirestore.instance
           .collection('salon')
           .doc(_user?.uid)
           .collection('appointments')
           .where('status', isEqualTo: 'Accepted')
-          .where('isPaid', isEqualTo: true) // Filter for paid appointments
-          .where('date',
-              isEqualTo: todayDate) // Filter for today's appointments
+          .where('isPaid', isEqualTo: true)
+          .where('date', isEqualTo: todayDate)
           .get();
 
       setState(() {
-        paidAppointmentsTodayCount =
-            paidQuerySnapshot.docs.length; // Update the count
+        paidAppointmentsTodayCount = paidQuerySnapshot.docs.length;
       });
     } catch (e) {
       print('Error fetching paid appointments for today: $e');
     }
   }
 
-  // Fetch the count of reschedule requests
   Future<void> fetchRescheduleCount() async {
     try {
       final rescheduleQuerySnapshot = await FirebaseFirestore.instance
@@ -125,7 +122,6 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     }
   }
 
-  // Fetch the count of cancellation requests
   Future<void> fetchCancellationCount() async {
     try {
       final cancellationQuerySnapshot = await FirebaseFirestore.instance
@@ -158,7 +154,24 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     await fetchSalonDetails();
     await fetchPaidAppointmentsTodayCount();
     await fetchRescheduleCount();
-    await fetchCancellationCount(); // Refresh the cancellation count
+    await fetchCancellationCount();
+  }
+
+  Future<void> createLog(String actionType, String description) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('logs')
+          .add({
+        'actionType': actionType,
+        'description': description,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print('Log created: $actionType - $description');
+    } catch (e) {
+      print('Error creating log: $e');
+    }
   }
 
   @override
@@ -231,7 +244,14 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                   ),
                 ),
               ),
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DashboardOwner(),
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: Icon(Icons.info, color: Colors.green[700]),
@@ -289,6 +309,46 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const EmployeesOwner(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.reviews, color: Colors.green[700]),
+              title: Text(
+                'Reviews',
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ReviewsPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.history, color: Colors.green[700]),
+              title: Text(
+                'Logs',
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LogsPage(),
                   ),
                 );
               },

@@ -18,7 +18,6 @@ class _EmployeesFormState extends State<EmployeesForm> {
   final List<String> _categories = [
     'Hair',
     'Nail',
-    'Facial',
     'Massage',
     'Others',
   ];

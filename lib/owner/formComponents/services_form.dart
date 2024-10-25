@@ -104,7 +104,7 @@ class _ServicesFormState extends State<ServicesForm> {
                       ),
                     ),
                     subtitle: Text(
-                      'Price: \$${service['price']} | Category: ${service['category']}',
+                      'Price: \₱${service['price']} | Category: ${service['category']}',
                       style: const TextStyle(
                         color: Colors.black87,
                         height: 1.5,
