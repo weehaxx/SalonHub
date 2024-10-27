@@ -9,8 +9,8 @@ import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
 import 'package:salon_hub/client/salonFiltering_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
-import 'package:geolocator/geolocator.dart'; // Import for geolocation
-import 'dart:math'; // Import for KNN-based distance calculations
+import 'package:geolocator/geolocator.dart';
+import 'dart:math';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 
 class SalonhomepageClient extends StatefulWidget {
@@ -28,24 +28,23 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   List<Map<String, dynamic>> _salons = [];
   List<Map<String, dynamic>> _personalizedSalons = [];
   List<Map<String, dynamic>> _nearbySalons = [];
-  bool _isLoadingPersonalized =
-      true; // To track loading of personalized recommendations
-  bool _isLoadingNearby = true; // To track loading of nearby salons
-  int _selectedIndex = 0; // For Bottom Navigation
+  bool _isLoadingPersonalized = true;
+  bool _isLoadingNearby = true;
+  int _selectedIndex = 0;
+  String _selectedSalonFilter = "Top Salons";
 
   @override
   void initState() {
     super.initState();
-    _checkAndLoadUserName(); // Load or prompt for user name
-    _fetchSalons(); // Fetch salons from Firestore
-    _fetchPersonalizedSalons(); // Fetch personalized recommendations
-    _fetchNearbySalons(); // Fetch nearby salons
+    _checkAndLoadUserName();
+    _fetchSalons();
+    _fetchPersonalizedSalons();
+    _fetchNearbySalons();
   }
 
   Future<void> _checkAndLoadUserName() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Save userId
       setState(() {
         _userId = user.uid;
       });
@@ -57,14 +56,13 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
       if (userDoc.exists) {
         setState(() {
-          _userName = userDoc['name'] ?? ''; // Check if the name exists
+          _userName = userDoc['name'] ?? '';
           _userEmail = user.email;
           _profileImageUrl = user.photoURL;
         });
 
-        // Check if the 'name' field is missing or empty
         if (_userName == null || _userName!.isEmpty) {
-          Future.delayed(Duration.zero, _promptForUserName); // Prompt for name
+          Future.delayed(Duration.zero, _promptForUserName);
         }
       }
     }
@@ -75,7 +73,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dialog from closing on outside tap
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Stack(
           children: [
@@ -229,7 +227,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         };
       }).toList());
 
-      if (!mounted) return; // Ensure the widget is still mounted
+      if (!mounted) return;
       setState(() {
         _salons = salons;
       });
@@ -240,11 +238,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
   Future<void> _fetchPersonalizedSalons() async {
     setState(() {
-      _isLoadingPersonalized = true; // Set loading state
+      _isLoadingPersonalized = true;
     });
 
     try {
-      // Fetch user's past appointments for relevance
       QuerySnapshot pastAppointmentsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(_userId)
@@ -255,7 +252,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           .map((doc) => doc['salon_id'] as String)
           .toList();
 
-      // Filter the salons based on rating >= 4 or reviews >= 5
       List<Map<String, dynamic>> filteredSalons = _salons.where((salon) {
         double rating = salon.containsKey('rating')
             ? (salon['rating'] as num).toDouble()
@@ -272,11 +268,9 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         double rating = (salon['rating'] != null)
             ? (salon['rating'] as num).toDouble()
             : 0.0;
-
         int reviews = (salon['total_reviews'] != null)
             ? (salon['total_reviews'] as num).toInt()
             : 0;
-
         bool isPastAppointment = pastSalonIds.contains(salon['salon_id']);
         double score = _calculateScore(rating, reviews, isPastAppointment);
 
@@ -288,36 +282,35 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
       personalizedSalons.sort((a, b) => b['score'].compareTo(a['score']));
 
-      if (!mounted) return; // Ensure the widget is still mounted
+      if (!mounted) return;
       setState(() {
         _personalizedSalons = personalizedSalons;
         _isLoadingPersonalized = false;
       });
     } catch (e) {
       print("Error fetching personalized salons: $e");
-      if (!mounted) return; // Ensure the widget is still mounted
+      if (!mounted) return;
       setState(() {
         _isLoadingPersonalized = false;
       });
     }
   }
 
-// Helper function to calculate the score
   double _calculateScore(double rating, int reviews, bool isPastAppointment) {
-    double score = rating * 10; // Higher weight for rating
-    score += reviews; // Add reviews as a smaller weight
+    double score = rating * 10;
+    score += reviews;
     if (isPastAppointment) {
-      score += 50; // Give a large bonus for past appointments
+      score += 50;
     }
     return score;
   }
 
   Future<void> _fetchNearbySalons() async {
     setState(() {
-      _isLoadingNearby = true; // Set loading state
+      _isLoadingNearby = true;
     });
 
-    const double maxDistance = 5.0; // Define max distance as 5 kilometers
+    const double maxDistance = 5.0;
 
     try {
       Position userLocation = await Geolocator.getCurrentPosition(
@@ -326,46 +319,39 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         double salonLat = salon['latitude'];
         double salonLon = salon['longitude'];
 
-        // Calculate the distance between user and salon
         double distance = _calculateDistance(
             userLocation.latitude, userLocation.longitude, salonLat, salonLon);
 
-        // Filter salons based on the maximum distance
-        return distance <= maxDistance; // Only include salons within 5 km
+        return distance <= maxDistance;
       }).map((salon) {
         double salonLat = salon['latitude'];
         double salonLon = salon['longitude'];
 
-        // Calculate the distance between user and salon
         double distance = _calculateDistance(
             userLocation.latitude, userLocation.longitude, salonLat, salonLon);
 
-        return {
-          ...salon,
-          'distance': distance // Include distance in salon data
-        };
+        return {...salon, 'distance': distance};
       }).toList();
 
-      // Sort based on the closest distance
       nearbySalons.sort((a, b) {
         return a['distance'].compareTo(b['distance']);
       });
 
       setState(() {
         _nearbySalons = nearbySalons;
-        _isLoadingNearby = false; // Done loading
+        _isLoadingNearby = false;
       });
     } catch (e) {
       print("Error fetching nearby salons: $e");
       setState(() {
-        _isLoadingNearby = false; // Done loading
+        _isLoadingNearby = false;
       });
     }
   }
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
-    const R = 6371; // Radius of Earth in kilometers
+    const R = 6371;
     double dLat = _degToRad(lat2 - lat1);
     double dLon = _degToRad(lon2 - lon1);
     double a = sin(dLat / 2) * sin(dLat / 2) +
@@ -383,14 +369,14 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
   void _onTabSelected(int index) {
     setState(() {
-      _selectedIndex = index; // Update selected index for BottomNavigation
+      _selectedIndex = index;
     });
   }
 
   Future<void> _handleRefresh() async {
-    await _fetchPersonalizedSalons(); // Refresh the personalized salons
-    await _fetchNearbySalons(); // Refresh nearby salons
-    await _fetchSalons(); // Refresh all salons as well
+    await _fetchPersonalizedSalons();
+    await _fetchNearbySalons();
+    await _fetchSalons();
   }
 
   Future<bool> _showLogoutConfirmation() async {
@@ -405,29 +391,28 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context)
-                      .pop(false); // Dismiss the dialog, don't log out
+                  Navigator.of(context).pop(false);
                 },
                 child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () async {
-                  await _logout(); // Call logout method
+                  await _logout();
                 },
                 child: const Text('Logout'),
               ),
             ],
           ),
         ) ??
-        false; // Return false if the dialog is dismissed without any selection
+        false;
   }
 
   @override
   Widget build(BuildContext context) {
     final List<String> _titles = [
-      'Recommended For You',
+      'Find Service',
+      'Salons',
       'Nearby Salons',
-      'Filter Salons',
     ];
 
     return WillPopScope(
@@ -486,10 +471,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
               ),
               Expanded(
                 child: _selectedIndex == 0
-                    ? _buildRecommendationsPage()
+                    ? _buildFilterPage()
                     : _selectedIndex == 1
-                        ? _buildNearbyPage()
-                        : _buildFilterPage(),
+                        ? _buildRecommendationsPage()
+                        : _buildNearbyPage(),
               ),
             ],
           ),
@@ -501,54 +486,87 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           animationDuration: const Duration(milliseconds: 300),
           onTap: _onTabSelected,
           items: const <Widget>[
-            Icon(Icons.star, size: 30, color: Colors.white), // Recommendations
-            Icon(Icons.near_me, size: 30, color: Colors.white), // Nearby Salons
-            Icon(Icons.filter_list,
-                size: 30, color: Colors.white), // Filter Salons
+            Icon(Icons.home, size: 30, color: Colors.white),
+            Icon(Icons.hotel_class, size: 30, color: Colors.white),
+            Icon(Icons.near_me, size: 30, color: Colors.white),
           ],
         ),
       ),
     );
   }
 
-// Build the recommendations page
+  Widget _buildAllSalonsPage() {
+    return _salons.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _salons.length,
+            itemBuilder: (context, index) {
+              final salon = _salons[index];
+              final double rating = salon.containsKey('rating')
+                  ? salon['rating'].toDouble()
+                  : 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5.0),
+                child: SalonContainer(
+                  key: UniqueKey(),
+                  salonId: salon['salon_id'],
+                  rating: rating,
+                  salon: salon,
+                  userId: _userId ?? '',
+                ),
+              );
+            },
+          );
+  }
+
   Widget _buildRecommendationsPage() {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       child: Container(
-        color: Color(0xfffaf9f6), // Set the background color to white
+        color: Color(0xfffaf9f6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _isLoadingPersonalized
-                  ? const Center(
-                      child:
-                          CircularProgressIndicator()) // Show loading spinner
-                  : ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: _personalizedSalons.length,
-                      itemBuilder: (context, index) {
-                        final salon = _personalizedSalons[index];
-
-                        // Safely get rating
-                        final double rating = salon.containsKey('rating')
-                            ? (salon['rating'] ?? 0.0)
-                                .toDouble() // Default to 0.0
-                            : 0.0;
-
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5.0),
-                          child: SalonContainer(
-                            key: UniqueKey(),
-                            salonId: salon['salon_id'],
-                            rating: rating,
-                            salon: salon,
-                            userId: _userId ?? '',
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  DropdownButton<String>(
+                    value: _selectedSalonFilter,
+                    items: ["Top Salons", "All Salons"].map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(
+                          value,
+                          style: GoogleFonts.abel(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      setState(() {
+                        _selectedSalonFilter = newValue!;
+                        if (_selectedSalonFilter == "All Salons") {
+                          _fetchSalons();
+                        } else {
+                          _fetchPersonalizedSalons();
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _selectedSalonFilter == "Top Salons"
+                  ? _buildRecommendationsList()
+                  : _buildAllSalonsPage(),
             ),
           ],
         ),
@@ -556,7 +574,32 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     );
   }
 
-// Build the nearby salons page
+  Widget _buildRecommendationsList() {
+    return _isLoadingPersonalized
+        ? const Center(child: CircularProgressIndicator())
+        : ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _personalizedSalons.length,
+            itemBuilder: (context, index) {
+              final salon = _personalizedSalons[index];
+              final double rating = salon.containsKey('rating')
+                  ? (salon['rating'] ?? 0.0).toDouble()
+                  : 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5.0),
+                child: SalonContainer(
+                  key: UniqueKey(),
+                  salonId: salon['salon_id'],
+                  rating: rating,
+                  salon: salon,
+                  userId: _userId ?? '',
+                ),
+              );
+            },
+          );
+  }
+
   Widget _buildNearbyPage() {
     return RefreshIndicator(
       onRefresh: _handleRefresh,
@@ -601,7 +644,22 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     return SalonFilterPage(
       onFilterApplied: (filteredSalons) {
         setState(() {
-          _salons = filteredSalons; // Update the state with the filtered salons
+          _salons = filteredSalons.map((salon) {
+            return {
+              'salon_id': salon['salon_id'] ?? 'Unknown ID',
+              'salon_name': salon['salon_name'] ?? 'Unknown Salon',
+              'address': salon['address'] ?? 'No Address Available',
+              'latitude': salon['latitude'] ?? 0.0,
+              'longitude': salon['longitude'] ?? 0.0,
+              'open_time': salon['open_time'] ?? 'N/A',
+              'close_time': salon['close_time'] ?? 'N/A',
+              'image_url': salon['image_url'] ?? '',
+              'services': salon['services'] ?? [],
+              'stylists': salon['stylists'] ?? [],
+              'rating': salon['rating'] ?? 0.0,
+              'total_reviews': salon['total_reviews'] ?? 0,
+            };
+          }).toList();
         });
       },
     );
@@ -613,55 +671,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       context,
       MaterialPageRoute(
         builder: (context) => const Login(),
-      ),
-    );
-  }
-
-  Widget _buildCurvedBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xff355E3B),
-        borderRadius: const BorderRadius.only(
-          topRight: Radius.circular(30),
-          topLeft: Radius.circular(30),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onTabSelected,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.6),
-        showSelectedLabels: true,
-        showUnselectedLabels: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Recommendations',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.near_me),
-            label: 'Nearby',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: 'All Salons',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.filter_list),
-            label: 'Filter',
-          ),
-        ],
       ),
     );
   }

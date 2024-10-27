@@ -1,14 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:salon_hub/client/salondetails_client.dart';
 
 class ServiceSalonContainer extends StatelessWidget {
   final String salonId;
   final String salonName;
-  final String salonAddress; // Correct field name for address
+  final String salonAddress;
   final double rating;
   final String serviceName;
   final String servicePrice;
   final String imageUrl;
+  final List<Map<String, dynamic>> services; // Ensure services are passed
+  final List<Map<String, dynamic>> stylists;
+  final String openTime;
+  final String closeTime;
+  final String userId;
 
   const ServiceSalonContainer({
     Key? key,
@@ -19,16 +26,31 @@ class ServiceSalonContainer extends StatelessWidget {
     required this.serviceName,
     required this.servicePrice,
     required this.imageUrl,
-    required address,
+    required this.services, // Ensure services are passed
+    required this.stylists,
+    required this.openTime,
+    required this.closeTime,
+    required this.userId,
   }) : super(key: key);
+
+  Future<List<Map<String, dynamic>>> fetchServices(String salonId) async {
+    QuerySnapshot servicesSnapshot = await FirebaseFirestore.instance
+        .collection('salon')
+        .doc(salonId)
+        .collection('services')
+        .get();
+
+    return servicesSnapshot.docs
+        .map((doc) => doc.data() as Map<String, dynamic>)
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Container(
-        width: 200,
-        height: 320, // Adjusted width to fit horizontally
+        height: 320,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -44,7 +66,6 @@ class ServiceSalonContainer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Salon Image Section with Rating at the upper right
             Stack(
               children: [
                 ClipRRect(
@@ -55,14 +76,13 @@ class ServiceSalonContainer extends StatelessWidget {
                   child: imageUrl.isNotEmpty
                       ? Image.network(
                           imageUrl,
-                          height: 100, // Adjusted height for image
+                          height: 100,
                           width: double.infinity,
-                          fit: BoxFit
-                              .cover, // Ensure the image fits the container
+                          fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Image.asset(
                               'assets/images/default_salon.jpg',
-                              height: 100, // Same height for fallback image
+                              height: 100,
                               width: double.infinity,
                               fit: BoxFit.cover,
                             );
@@ -70,15 +90,14 @@ class ServiceSalonContainer extends StatelessWidget {
                         )
                       : Image.asset(
                           'assets/images/default_salon.jpg',
-                          height: 100, // Set height for default image
+                          height: 100,
                           width: double.infinity,
-                          fit: BoxFit
-                              .cover, // Fit the image inside the container
+                          fit: BoxFit.cover,
                         ),
                 ),
                 Positioned(
                   top: 8,
-                  right: 8, // Move rating to the upper right
+                  right: 8,
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -105,14 +124,12 @@ class ServiceSalonContainer extends StatelessWidget {
                 ),
               ],
             ),
-            // Salon Name and Open Hours Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(
-                      height: 8), // Added spacing between image and text
+                  const SizedBox(height: 8),
                   Text(
                     salonName,
                     style: GoogleFonts.abel(
@@ -122,8 +139,9 @@ class ServiceSalonContainer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  // Use dynamic open and close times
                   Text(
-                    'OPEN NOW - 8:00 AM - 5:30 PM',
+                    'OPEN NOW - $openTime - $closeTime',
                     style: GoogleFonts.abel(
                       fontSize: 10,
                       color: Colors.green,
@@ -134,7 +152,6 @@ class ServiceSalonContainer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Salon Address
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -156,7 +173,6 @@ class ServiceSalonContainer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            // Service and Price Information
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
@@ -182,7 +198,6 @@ class ServiceSalonContainer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            // Action Buttons Section (Location and See Details)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -192,16 +207,32 @@ class ServiceSalonContainer extends StatelessWidget {
                     icon: const Icon(
                       Icons.location_on,
                       color: Color(0xff355E3B),
-                      size: 18, // Smaller icon size
+                      size: 18,
                     ),
                     onPressed: () {
-                      // Add location action here if necessary
+                      // Location action here
                     },
                   ),
                   Flexible(
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Implement the navigation logic for details
+                      onPressed: () async {
+                        List<Map<String, dynamic>> servicesData =
+                            await fetchServices(salonId);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SalondetailsClient(
+                              salonId: salonId,
+                              salonName: salonName,
+                              address: salonAddress,
+                              services: servicesData, // Pass fetched services
+                              stylists: stylists,
+                              openTime: openTime,
+                              closeTime: closeTime,
+                              userId: userId,
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xff355E3B),
@@ -209,7 +240,7 @@ class ServiceSalonContainer extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 8), // Adjust padding
+                            horizontal: 8, vertical: 8),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -217,20 +248,20 @@ class ServiceSalonContainer extends StatelessWidget {
                           const Icon(
                             Icons.remove_red_eye,
                             color: Colors.white,
-                            size: 12, // Smaller icon
+                            size: 12,
                           ),
                           const SizedBox(width: 5),
                           Text(
                             'SEE DETAILS',
                             style: GoogleFonts.abel(
-                              fontSize: 12, // Smaller text size
+                              fontSize: 12,
                               color: Colors.white,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),

@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 class EditSalonInfo extends StatefulWidget {
-  const EditSalonInfo({super.key});
+  const EditSalonInfo({super.key, required Map<String, dynamic> salonData});
 
   @override
   State<EditSalonInfo> createState() => _EditSalonInfoState();
