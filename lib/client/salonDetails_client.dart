@@ -616,29 +616,14 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                   ],
                 ),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  if (id != null) {
-                    _toggleStylistStatus(id, status ?? 'Unavailable');
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Stylist ID is missing. Unable to update status.'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  backgroundColor: (status == 'Available')
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (status == 'Available')
                       ? const Color.fromARGB(255, 29, 141, 6)
                       : const Color.fromARGB(255, 214, 48, 49),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   status == 'Available' ? 'Available' : 'Unavailable',

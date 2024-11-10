@@ -31,6 +31,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   int cancellationCount = 0;
   String salonName = "Salon Name";
   String ownerName = "Owner Name";
+  String status = "Open"; // Initialize salon status
 
   @override
   void initState() {
@@ -53,10 +54,29 @@ class _DashboardOwnerState extends State<DashboardOwner> {
         setState(() {
           salonName = salonDoc.data()?['salon_name'] ?? 'Salon Name';
           ownerName = salonDoc.data()?['owner_name'] ?? 'Owner Name';
+          status = salonDoc.data()?['status'] ?? 'Open'; // Fetch status field
         });
       }
     } catch (e) {
       print('Error fetching salon details: $e');
+    }
+  }
+
+  Future<void> updateSalonStatus(String newStatus) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .update({'status': newStatus}); // Update the status field
+
+      setState(() {
+        status = newStatus;
+      });
+
+      // Log the status change
+      createLog('Status Update', 'Salon status changed to $newStatus');
+    } catch (e) {
+      print('Error updating salon status: $e');
     }
   }
 
@@ -390,9 +410,45 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Status Container for Salon Open/Closed
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color:
+                        status == "Open" ? Colors.green[100] : Colors.red[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Salon is $status",
+                        style: GoogleFonts.montserrat(
+                          textStyle: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: status == "Open" ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: status == "Open",
+                        onChanged: (value) {
+                          String newStatus = value ? "Open" : "Closed";
+                          updateSalonStatus(newStatus);
+                        },
+                        activeColor: Colors.green,
+                        inactiveThumbColor: Colors.red,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 _buildDashboardItem(
                   paidAppointmentsTodayCount.toString(),
-                  "Paid Appointments for Today",
+                  "Today's Appointment",
                   const Color(0xff355E3B),
                   const Color(0xFFF9F9F9),
                   const Icon(Icons.money, size: 40, color: Colors.green),
@@ -417,7 +473,8 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const Acceptedappointment()),
+                        builder: (context) => const Acceptedappointment(),
+                      ),
                     );
                   },
                 ),

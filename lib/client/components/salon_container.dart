@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salonDetails_client.dart';
+import 'package:intl/intl.dart'; // For parsing and formatting time
 
 class SalonContainer extends StatelessWidget {
   final String salonId;
@@ -22,6 +23,28 @@ class SalonContainer extends StatelessWidget {
     required this.userId, // Pass userId here
     this.distance, // Add distance here
   }) : super(key: key);
+
+  bool _isSalonOpen(String openTime, String closeTime) {
+    final DateFormat dateFormat = DateFormat('h:mm a');
+    try {
+      DateTime now = DateTime.now();
+      DateTime open = dateFormat.parse(openTime);
+      DateTime close = dateFormat.parse(closeTime);
+
+      open = DateTime(now.year, now.month, now.day, open.hour, open.minute);
+      close = DateTime(now.year, now.month, now.day, close.hour, close.minute);
+
+      // Handle overnight closing time (e.g., 11:00 PM to 4:00 AM)
+      if (close.isBefore(open)) {
+        close = close.add(Duration(days: 1));
+      }
+
+      return now.isAfter(open) && now.isBefore(close);
+    } catch (e) {
+      print('Error parsing open/close time: $e');
+      return false;
+    }
+  }
 
   Future<void> _handleLocationPermission(BuildContext context) async {
     if (await Permission.location.request().isGranted) {
@@ -91,6 +114,8 @@ class SalonContainer extends StatelessWidget {
     final services = salon['services'] ?? [];
     final stylists = salon['stylists'] ?? [];
     final imageUrl = salon['image_url'];
+
+    bool isOpen = _isSalonOpen(openTime, closeTime);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -173,11 +198,14 @@ class SalonContainer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Display open/close status with color
                   Text(
-                    'OPEN NOW - $openTime - $closeTime',
+                    isOpen
+                        ? 'OPEN NOW - $openTime - $closeTime'
+                        : 'CLOSED - $openTime - $closeTime',
                     style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        color: Colors.green,
+                      textStyle: TextStyle(
+                        color: isOpen ? Colors.green : Colors.red,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

@@ -45,9 +45,9 @@ class _PaymentHistoryState extends State<PaymentHistory> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Payment History',
-          style: TextStyle(color: Colors.white),
+          style: GoogleFonts.abel(color: Colors.white),
         ),
         backgroundColor: const Color(0xff355E3B), // Custom green color
         elevation: 0,
@@ -60,10 +60,10 @@ class _PaymentHistoryState extends State<PaymentHistory> {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
                 'No payment history found.',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
+                style: GoogleFonts.abel(fontSize: 18, color: Colors.grey),
               ),
             );
           }
@@ -106,7 +106,7 @@ class _PaymentHistoryState extends State<PaymentHistory> {
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               'Payment to $salonName',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.abel(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
@@ -116,7 +116,7 @@ class _PaymentHistoryState extends State<PaymentHistory> {
                           const SizedBox(height: 10),
                           Text(
                             'Reference Number: ${payment['reference_number'] ?? 'N/A'}',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontSize: 14,
                               color: Colors.black54,
                             ),
@@ -124,7 +124,7 @@ class _PaymentHistoryState extends State<PaymentHistory> {
                           const SizedBox(height: 5),
                           Text(
                             'Payment Date: ${paymentDate.toString()}',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.abel(
                               fontSize: 14,
                               color: Colors.grey[600],
                             ),
@@ -137,7 +137,7 @@ class _PaymentHistoryState extends State<PaymentHistory> {
                               },
                               child: Text(
                                 'See Receipt',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.abel(
                                   fontSize: 14,
                                   color: Colors.blue,
                                   decoration: TextDecoration.underline,

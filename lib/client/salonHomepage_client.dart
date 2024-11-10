@@ -1,17 +1,17 @@
 import 'dart:ui';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
 import 'package:salon_hub/client/components/nearby_salon_container.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
 import 'package:salon_hub/client/review_experience_page.dart';
 import 'package:salon_hub/client/salonFiltering_page.dart';
 import 'package:salon_hub/pages/login_page.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:math';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 
 class SalonhomepageClient extends StatefulWidget {
   const SalonhomepageClient({super.key});
@@ -28,18 +28,56 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   List<Map<String, dynamic>> _salons = [];
   List<Map<String, dynamic>> _personalizedSalons = [];
   List<Map<String, dynamic>> _nearbySalons = [];
+  List<Map<String, dynamic>> _filteredSalons = [];
   bool _isLoadingPersonalized = true;
   bool _isLoadingNearby = true;
   int _selectedIndex = 0;
-  String _selectedSalonFilter = "Top Salons";
+
+  TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _checkAndLoadUserName();
-    _fetchSalons();
-    _fetchPersonalizedSalons();
-    _fetchNearbySalons();
+    _initializeData();
+    _searchController.addListener(_applySearchFilter);
+  }
+
+  void _applySearchFilter() {
+    String query = _searchController.text.toLowerCase();
+    setState(() {
+      if (_selectedIndex == 1) {
+        _filteredSalons = _personalizedSalons
+            .where((salon) =>
+                salon['salon_name'].toString().toLowerCase().contains(query))
+            .toList();
+      } else if (_selectedIndex == 2) {
+        _filteredSalons = _nearbySalons
+            .where((salon) =>
+                salon['salon_name'].toString().toLowerCase().contains(query))
+            .toList();
+      } else {
+        _filteredSalons = _salons
+            .where((salon) =>
+                salon['salon_name'].toString().toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _initializeData() async {
+    setState(() {
+      _isLoadingPersonalized = true;
+      _isLoadingNearby = true;
+    });
+    await _checkAndLoadUserName();
+    await _fetchSalons();
+    await _fetchPersonalizedSalons();
+    await _fetchNearbySalons();
+    setState(() {
+      _isLoadingPersonalized = false;
+      _isLoadingNearby = false;
+    });
+    _applySearchFilter();
   }
 
   Future<void> _checkAndLoadUserName() async {
@@ -337,6 +375,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         return a['distance'].compareTo(b['distance']);
       });
 
+      if (!mounted) return;
       setState(() {
         _nearbySalons = nearbySalons;
         _isLoadingNearby = false;
@@ -347,6 +386,19 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
         _isLoadingNearby = false;
       });
     }
+  }
+
+  void _searchSalon(String query) {
+    final filteredSalons = _salons.where((salon) {
+      final salonName = salon['salon_name'].toLowerCase();
+      final searchQuery = query.toLowerCase();
+
+      return salonName.contains(searchQuery);
+    }).toList();
+
+    setState(() {
+      _filteredSalons = filteredSalons;
+    });
   }
 
   double _calculateDistance(
@@ -371,6 +423,7 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
     setState(() {
       _selectedIndex = index;
     });
+    _applySearchFilter(); // Apply search filter whenever tab changes
   }
 
   Future<void> _handleRefresh() async {
@@ -405,6 +458,132 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           ),
         ) ??
         false;
+  }
+
+  Widget _buildRecommendationsPage() {
+    return _isLoadingPersonalized
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Container(
+                          height: 40,
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (query) => _searchSalon(
+                                query), // Call search on text change
+                            style: GoogleFonts.abel(fontSize: 14),
+                            decoration: InputDecoration(
+                              labelText: 'Search Salons',
+                              labelStyle: GoogleFonts.abel(
+                                  fontSize: 14, color: Colors.grey),
+                              prefixIcon: const Icon(Icons.search,
+                                  size: 18, color: Colors.grey),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: Color(0xff355E3B), width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _buildAllSalonsPage(),
+                ),
+              ],
+            ),
+          );
+  }
+
+  Widget _buildNearbyPage() {
+    List<Map<String, dynamic>> displaySalons =
+        _searchController.text.isNotEmpty ? _filteredSalons : _nearbySalons;
+
+    return _isLoadingNearby
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: displaySalons.length,
+              itemBuilder: (context, index) {
+                final salon = displaySalons[index];
+                final double rating = salon.containsKey('rating')
+                    ? salon['rating'].toDouble()
+                    : 0.0;
+                final double distance = salon['distance'];
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: NearbySalonContainer(
+                    key: UniqueKey(),
+                    salonId: salon['salon_id'],
+                    rating: rating,
+                    salon: salon,
+                    userId: _userId ?? '',
+                    distance: distance,
+                  ),
+                );
+              },
+            ),
+          );
+  }
+
+  Widget _buildAllSalonsPage() {
+    return _filteredSalons.isEmpty
+        ? const Center(child: Text("No salons found"))
+        : ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _filteredSalons.length,
+            itemBuilder: (context, index) {
+              final salon = _filteredSalons[index];
+              final double rating = salon.containsKey('rating')
+                  ? salon['rating'].toDouble()
+                  : 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5.0),
+                child: SalonContainer(
+                  key: UniqueKey(),
+                  salonId: salon['salon_id'],
+                  rating: rating,
+                  salon: salon,
+                  userId: _userId ?? '',
+                ),
+              );
+            },
+          );
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const Login(),
+      ),
+    );
   }
 
   @override
@@ -486,156 +665,11 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           animationDuration: const Duration(milliseconds: 300),
           onTap: _onTabSelected,
           items: const <Widget>[
-            Icon(Icons.home, size: 30, color: Colors.white),
-            Icon(Icons.hotel_class, size: 30, color: Colors.white),
+            Icon(Icons.cut, size: 30, color: Colors.white),
+            Icon(Icons.holiday_village, size: 30, color: Colors.white),
             Icon(Icons.near_me, size: 30, color: Colors.white),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAllSalonsPage() {
-    return _salons.isEmpty
-        ? const Center(child: CircularProgressIndicator())
-        : ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: _salons.length,
-            itemBuilder: (context, index) {
-              final salon = _salons[index];
-              final double rating = salon.containsKey('rating')
-                  ? salon['rating'].toDouble()
-                  : 0.0;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5.0),
-                child: SalonContainer(
-                  key: UniqueKey(),
-                  salonId: salon['salon_id'],
-                  rating: rating,
-                  salon: salon,
-                  userId: _userId ?? '',
-                ),
-              );
-            },
-          );
-  }
-
-  Widget _buildRecommendationsPage() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: Container(
-        color: Color(0xfffaf9f6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  DropdownButton<String>(
-                    value: _selectedSalonFilter,
-                    items: ["Top Salons", "All Salons"].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value,
-                          style: GoogleFonts.abel(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        _selectedSalonFilter = newValue!;
-                        if (_selectedSalonFilter == "All Salons") {
-                          _fetchSalons();
-                        } else {
-                          _fetchPersonalizedSalons();
-                        }
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _selectedSalonFilter == "Top Salons"
-                  ? _buildRecommendationsList()
-                  : _buildAllSalonsPage(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendationsList() {
-    return _isLoadingPersonalized
-        ? const Center(child: CircularProgressIndicator())
-        : ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: _personalizedSalons.length,
-            itemBuilder: (context, index) {
-              final salon = _personalizedSalons[index];
-              final double rating = salon.containsKey('rating')
-                  ? (salon['rating'] ?? 0.0).toDouble()
-                  : 0.0;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5.0),
-                child: SalonContainer(
-                  key: UniqueKey(),
-                  salonId: salon['salon_id'],
-                  rating: rating,
-                  salon: salon,
-                  userId: _userId ?? '',
-                ),
-              );
-            },
-          );
-  }
-
-  Widget _buildNearbyPage() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _isLoadingNearby
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : ListView.builder(
-                    padding: EdgeInsets.zero,
-                    itemCount: _nearbySalons.length,
-                    itemBuilder: (context, index) {
-                      final salon = _nearbySalons[index];
-                      final double rating = salon.containsKey('rating')
-                          ? salon['rating'].toDouble()
-                          : 0.0;
-                      final double distance = salon['distance'];
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5.0),
-                        child: NearbySalonContainer(
-                          key: UniqueKey(),
-                          salonId: salon['salon_id'],
-                          rating: rating,
-                          salon: salon,
-                          userId: _userId ?? '',
-                          distance: distance,
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
       ),
     );
   }
@@ -662,16 +696,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           }).toList();
         });
       },
-    );
-  }
-
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const Login(),
-      ),
     );
   }
 }

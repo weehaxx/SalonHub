@@ -19,28 +19,12 @@ class _LoginState extends State<Login> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  String _emailError = '';
-  String _passwordError = '';
   String _loginError = '';
   String _resetPasswordMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _emailController.addListener(() {
-      if (_emailController.text.isNotEmpty) {
-        setState(() {
-          _emailError = '';
-        });
-      }
-    });
-    _passwordController.addListener(() {
-      if (_passwordController.text.isNotEmpty) {
-        setState(() {
-          _passwordError = '';
-        });
-      }
-    });
   }
 
   // Function to check if user is blocked
@@ -73,7 +57,6 @@ class _LoginState extends State<Login> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Log out the user and redirect to the login page
               FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(
                 context,
@@ -87,6 +70,46 @@ class _LoginState extends State<Login> {
         ],
       ),
     );
+  }
+
+  bool _validateEmail() {
+    String email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _loginError = 'Please enter your email';
+      });
+      return false;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _loginError = 'Please enter a valid email';
+      });
+      return false;
+    } else {
+      setState(() {
+        _loginError = '';
+      });
+      return true;
+    }
+  }
+
+  bool _validatePassword() {
+    String password = _passwordController.text.trim();
+    if (password.isEmpty) {
+      setState(() {
+        _loginError = 'Please enter your password';
+      });
+      return false;
+    } else if (password.length < 8) {
+      setState(() {
+        _loginError = 'Password must be at least 8 characters';
+      });
+      return false;
+    } else {
+      setState(() {
+        _loginError = '';
+      });
+      return true;
+    }
   }
 
   Future<void> _resetPasswordDialog(BuildContext context) async {
@@ -116,12 +139,20 @@ class _LoginState extends State<Login> {
                 textAlign: TextAlign.justify,
               ),
               const SizedBox(height: 15),
-              buildTextField(
-                'Enter your email',
-                resetEmailController,
-                false,
-                resetEmailError,
-                Icons.email,
+              TextField(
+                controller: resetEmailController,
+                decoration: InputDecoration(
+                  hintText: 'Enter your email',
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  prefixIcon: const Icon(Icons.email, color: Colors.black54),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  errorText:
+                      resetEmailError.isNotEmpty ? resetEmailError : null,
+                ),
               ),
             ],
           ),
@@ -154,7 +185,7 @@ class _LoginState extends State<Login> {
                     Navigator.of(context).pop();
                     setState(() {
                       _resetPasswordMessage =
-                          'Password reset link has been sent to your email. Please check your inbox.';
+                          'Password reset link sent to your email. Check your inbox.';
                     });
                   } on FirebaseAuthException catch (e) {
                     if (e.code == 'user-not-found') {
@@ -190,56 +221,13 @@ class _LoginState extends State<Login> {
     );
   }
 
-  bool _validateEmail() {
-    String email = _emailController.text.trim();
-    if (email.isEmpty) {
-      setState(() {
-        _emailError = 'Email cannot be empty';
-      });
-      return false;
-    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
-      setState(() {
-        _emailError = 'Please enter a valid email';
-      });
-      return false;
-    } else {
-      setState(() {
-        _emailError = ''; // Clear error when input is valid
-      });
-      return true;
-    }
-  }
-
-  bool _validatePassword() {
-    String password = _passwordController.text.trim();
-    if (password.isEmpty) {
-      setState(() {
-        _passwordError = 'Password cannot be empty';
-      });
-      return false;
-    } else if (password.length < 8) {
-      setState(() {
-        _passwordError = 'Password must be at least 8 characters long';
-      });
-      return false;
-    } else {
-      setState(() {
-        _passwordError = ''; // Clear error when input is valid
-      });
-      return true;
-    }
-  }
-
   Future<void> loginUser() async {
     setState(() {
       _isLoading = true;
       _loginError = '';
     });
 
-    bool isEmailValid = _validateEmail();
-    bool isPasswordValid = _validatePassword();
-
-    if (!isEmailValid || !isPasswordValid) {
+    if (!_validateEmail() || !_validatePassword()) {
       setState(() {
         _isLoading = false;
       });
@@ -255,31 +243,13 @@ class _LoginState extends State<Login> {
 
       String uid = userCredential.user!.uid;
       await _checkIfUserBlocked(uid);
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'user-not-found':
-          setState(() {
-            _loginError = 'No user found with this email.';
-          });
-          break;
-        case 'wrong-password':
-          setState(() {
-            _loginError = 'Incorrect password. Please try again.';
-          });
-          break;
-        case 'invalid-email':
-          setState(() {
-            _loginError = 'Invalid email format.';
-          });
-          break;
-        default:
-          setState(() {
-            _loginError = 'An error occurred: ${e.message}';
-          });
-      }
+    } on FirebaseAuthException {
+      setState(() {
+        _loginError = 'Invalid login credentials. Please try again.';
+      });
     } catch (e) {
       setState(() {
-        _loginError = 'An unexpected error occurred: $e';
+        _loginError = 'An unexpected error occurred. Please try again later.';
       });
     } finally {
       setState(() {
@@ -289,7 +259,7 @@ class _LoginState extends State<Login> {
 
     if (_loginError.isNotEmpty) {
       setState(() {
-        _passwordController.clear(); // Clear password field after failed login
+        _passwordController.clear();
       });
     }
   }
@@ -301,7 +271,6 @@ class _LoginState extends State<Login> {
     if (userDoc.exists) {
       String role = userDoc['role'];
 
-      // Navigate based on role
       if (role == 'client') {
         Navigator.pushReplacement(
           context,
@@ -313,12 +282,12 @@ class _LoginState extends State<Login> {
         await _checkSalonDetails(uid);
       } else {
         setState(() {
-          _loginError = 'Unknown role detected.';
+          _loginError = 'An error occurred. Please try again.';
         });
       }
     } else {
       setState(() {
-        _loginError = 'User data not found in Firestore.';
+        _loginError = 'An error occurred. Please try again.';
       });
     }
   }
@@ -348,7 +317,7 @@ class _LoginState extends State<Login> {
       }
     } catch (e) {
       setState(() {
-        _loginError = 'Error checking salon details: $e';
+        _loginError = 'An error occurred while loading your account.';
       });
     }
   }
@@ -422,7 +391,6 @@ class _LoginState extends State<Login> {
                       'Email',
                       _emailController,
                       false,
-                      _emailError,
                       Icons.email,
                     ),
                     const SizedBox(height: 10),
@@ -430,7 +398,6 @@ class _LoginState extends State<Login> {
                       'Password',
                       _passwordController,
                       true,
-                      _passwordError,
                       Icons.lock,
                     ),
                     const SizedBox(height: 20),
@@ -545,66 +512,53 @@ class _LoginState extends State<Login> {
   }
 
   Widget buildTextField(String hintText, TextEditingController controller,
-      bool isPassword, String errorMessage, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 60,
-          width: 300,
-          child: TextField(
-            controller: controller,
-            obscureText: isPassword ? !_isPasswordVisible : false,
-            style: const TextStyle(fontSize: 16, color: Colors.black87),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.grey[200],
-              prefixIcon: Icon(icon, color: Colors.black54),
-              hintText: hintText,
-              hintStyle: const TextStyle(fontSize: 16, color: Colors.black54),
-              contentPadding: const EdgeInsets.symmetric(vertical: 20),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: const BorderSide(
-                  color: Color(0xff355E3B),
-                  width: 2.0,
-                ),
-              ),
-              suffixIcon: isPassword
-                  ? IconButton(
-                      icon: Icon(
-                        _isPasswordVisible
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                        color: Colors.black54,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                    )
-                  : null,
+      bool isPassword, IconData icon) {
+    return SizedBox(
+      height: 60,
+      width: 300,
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword ? !_isPasswordVisible : false,
+        style: const TextStyle(fontSize: 16, color: Colors.black87),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.grey[200],
+          prefixIcon: Icon(icon, color: Colors.black54),
+          hintText: hintText,
+          hintStyle: const TextStyle(fontSize: 16, color: Colors.black54),
+          contentPadding: const EdgeInsets.symmetric(vertical: 20),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(
+              color: Color(0xff355E3B),
+              width: 2.0,
             ),
           ),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _isPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                    color: Colors.black54,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                )
+              : null,
         ),
-        if (errorMessage.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 5),
-            child: Text(
-              errorMessage,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }

@@ -146,6 +146,8 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                   final appointment = _appointments[index];
                   bool isCanceled = appointment['status'] == 'Canceled';
                   bool isPending = appointment['status'] == 'Pending';
+                  bool isDone = appointment['status'].toLowerCase() == 'done';
+
                   return Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -171,10 +173,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                                 ),
                               ),
                               trailing: Text(
-                                appointment['rescheduled']
-                                    ? '${appointment['status']}'
-                                    : appointment['status'] ??
-                                        'No status provided',
+                                appointment['status'] ?? 'No status provided',
                                 style: GoogleFonts.abel(
                                   color: appointment['statusTextColor'] ??
                                       Colors.black,
@@ -218,9 +217,10 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   _buildPayButton(appointment, isCanceled),
-                                  _buildRescheduleButton(
-                                      appointment, isCanceled, isPending),
-                                  _buildCancelButton(appointment, isCanceled),
+                                  _buildRescheduleButton(appointment,
+                                      isCanceled, isPending, isDone),
+                                  _buildCancelButton(
+                                      appointment, isCanceled, isDone),
                                 ],
                               ),
                             )
@@ -277,13 +277,14 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
   }
 
   // Method for building the Reschedule button
-  Widget _buildRescheduleButton(
-      Map<String, dynamic> appointment, bool isCanceled, bool isPending) {
+  Widget _buildRescheduleButton(Map<String, dynamic> appointment,
+      bool isCanceled, bool isPending, bool isDone) {
     return ElevatedButton(
       onPressed: isCanceled ||
               isPending ||
               appointment['rescheduled'] ||
-              !appointment['isPaid']
+              !appointment['isPaid'] ||
+              isDone
           ? null
           : () async {
               final confirmed = await _showRescheduleConfirmationDialog();
@@ -307,7 +308,8 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
         backgroundColor: isCanceled ||
                 isPending ||
                 appointment['rescheduled'] ||
-                !appointment['isPaid']
+                !appointment['isPaid'] ||
+                isDone
             ? Colors.grey
             : Colors.orange,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -324,10 +326,10 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
     );
   }
 
-  // Method for building the Cancel button
-  Widget _buildCancelButton(Map<String, dynamic> appointment, bool isCanceled) {
+  Widget _buildCancelButton(
+      Map<String, dynamic> appointment, bool isCanceled, bool isDone) {
     return ElevatedButton(
-      onPressed: isCanceled
+      onPressed: isCanceled || isDone
           ? null
           : () async {
               final confirmed = await _showCancellationConfirmationDialog(
@@ -343,7 +345,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
               }
             },
       style: ElevatedButton.styleFrom(
-        backgroundColor: isCanceled ? Colors.grey : Colors.red,
+        backgroundColor: isCanceled || isDone ? Colors.grey : Colors.red,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),

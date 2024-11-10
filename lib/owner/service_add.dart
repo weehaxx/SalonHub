@@ -293,6 +293,8 @@ class _AddServicePageState extends State<AddServicePage> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search services or categories...',
+                      hintStyle: GoogleFonts.abel(),
+                      labelStyle: GoogleFonts.abel(),
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),

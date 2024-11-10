@@ -1,29 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salondetails_client.dart';
 import 'package:intl/intl.dart'; // For parsing and formatting time
 
-class MostReviewedServiceContainer extends StatelessWidget {
+class TopSalonContainer extends StatelessWidget {
   final String salonId;
   final String salonName;
   final String salonAddress;
   final double rating;
-  final String popularServiceName;
   final String imageUrl;
+  final List<Map<String, dynamic>> stylists;
   final String openTime;
   final String closeTime;
   final String userId;
   final String status; // Added status parameter
 
-  const MostReviewedServiceContainer({
+  const TopSalonContainer({
     Key? key,
     required this.salonId,
     required this.salonName,
     required this.salonAddress,
     required this.rating,
-    required this.popularServiceName,
     required this.imageUrl,
+    required this.stylists,
     required this.openTime,
     required this.closeTime,
     required this.userId,
@@ -52,12 +56,63 @@ class MostReviewedServiceContainer extends StatelessWidget {
     }
   }
 
+  Future<void> _handleLocationPermission(BuildContext context) async {
+    if (await Permission.location.request().isGranted) {
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        DocumentSnapshot salonData = await FirebaseFirestore.instance
+            .collection('salon')
+            .doc(salonId)
+            .get();
+
+        if (salonData.exists) {
+          double? salonLatitude = salonData['latitude'];
+          double? salonLongitude = salonData['longitude'];
+          String salonName = salonData['salon_name'] ?? 'Unknown Salon';
+
+          if (salonLatitude != null && salonLongitude != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FullMapPage(
+                  userLocation: LatLng(position.latitude, position.longitude),
+                  salonLocation: LatLng(salonLatitude, salonLongitude),
+                  salonName: salonName,
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Salon location is incomplete')),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Salon location not found')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to retrieve salon location')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Location permission is required to continue')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
     return SizedBox(
-      width: 217,
+      width: 217, // Define width if used in horizontal list
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Container(
@@ -179,22 +234,23 @@ class MostReviewedServiceContainer extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Popular Service: $popularServiceName',
-                      style: GoogleFonts.abel(
-                        fontSize: 12,
-                        color: Colors.black87,
-                      ),
-                    ),
                     const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.location_on,
+                            color: Color(0xff355E3B),
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            _handleLocationPermission(context);
+                          },
+                        ),
                         Flexible(
                           child: ElevatedButton(
                             onPressed: () async {
-                              // Navigate to salon details with necessary data
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -203,7 +259,7 @@ class MostReviewedServiceContainer extends StatelessWidget {
                                     salonName: salonName,
                                     address: salonAddress,
                                     services: [], // Fetch services if needed
-                                    stylists: [], // Fetch stylists if needed
+                                    stylists: stylists,
                                     openTime: openTime,
                                     closeTime: closeTime,
                                     userId: userId,
