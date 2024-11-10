@@ -576,7 +576,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            'Overall Rating',
+            'Rating',
             style: GoogleFonts.abel(
               textStyle: const TextStyle(
                 fontSize: 24,
