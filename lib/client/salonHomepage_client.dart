@@ -551,13 +551,23 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   }
 
   Widget _buildAllSalonsPage() {
-    return _filteredSalons.isEmpty
-        ? const Center(child: Text("No salons found"))
+    // Use the full list (_salons) when the search field is empty,
+    // otherwise, use the filtered list (_filteredSalons)
+    final displaySalons =
+        _searchController.text.isNotEmpty ? _filteredSalons : _salons;
+
+    return displaySalons.isEmpty
+        ? const Center(
+            child: Text(
+              "No salons found",
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+          )
         : ListView.builder(
             padding: EdgeInsets.zero,
-            itemCount: _filteredSalons.length,
+            itemCount: displaySalons.length,
             itemBuilder: (context, index) {
-              final salon = _filteredSalons[index];
+              final salon = displaySalons[index];
               final double rating = salon.containsKey('rating')
                   ? salon['rating'].toDouble()
                   : 0.0;

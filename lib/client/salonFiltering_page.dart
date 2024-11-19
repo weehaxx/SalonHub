@@ -177,51 +177,70 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
   }
 
   Future<void> _fetchSalonsWithPopularService() async {
-    QuerySnapshot salonSnapshot =
-        await FirebaseFirestore.instance.collection('salon').get();
-    List<Map<String, dynamic>> salonResults = [];
+    try {
+      // Fetch salons collection
+      QuerySnapshot salonSnapshot =
+          await FirebaseFirestore.instance.collection('salon').get();
 
-    for (var salonDoc in salonSnapshot.docs) {
-      QuerySnapshot reviewsSnapshot =
-          await salonDoc.reference.collection('reviews').get();
+      List<Map<String, dynamic>> salonResults = [];
 
-      if (reviewsSnapshot.docs.isNotEmpty) {
-        Map<String, int> serviceCountMap = {};
-        double totalRating = 0;
-        int reviewCount = 0;
+      for (var salonDoc in salonSnapshot.docs) {
+        QuerySnapshot reviewsSnapshot =
+            await salonDoc.reference.collection('reviews').get();
 
-        for (var reviewDoc in reviewsSnapshot.docs) {
-          String service = reviewDoc['service'];
-          serviceCountMap[service] = (serviceCountMap[service] ?? 0) + 1;
-          totalRating += reviewDoc['rating'] as double;
-          reviewCount++;
+        // Ensure there are reviews to process
+        if (reviewsSnapshot.docs.isNotEmpty) {
+          Map<String, int> serviceCountMap = {};
+          double totalRating = 0;
+          int reviewCount = 0;
+
+          for (var reviewDoc in reviewsSnapshot.docs) {
+            String? service = reviewDoc['service'];
+            if (service != null) {
+              serviceCountMap[service] = (serviceCountMap[service] ?? 0) + 1;
+            }
+            totalRating += (reviewDoc['rating'] as num?)?.toDouble() ?? 0.0;
+            reviewCount++;
+          }
+
+          // Calculate the average rating
+          double averageRating =
+              reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+          // Find the most reviewed service
+          String? popularService = serviceCountMap.entries
+              .reduce((a, b) => a.value > b.value ? a : b)
+              .key;
+
+          salonResults.add({
+            'salonId': salonDoc.id,
+            'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
+            'salonAddress': salonDoc['address'] ?? 'Address not available',
+            'rating': averageRating,
+            'popularService': popularService ?? 'No service data',
+            'imageUrl':
+                salonDoc['image_url'] ?? 'assets/images/default_salon.jpg',
+            'openTime': salonDoc['open_time'] ?? 'N/A',
+            'closeTime': salonDoc['close_time'] ?? 'N/A',
+            'status': salonDoc['status'] ?? 'Closed',
+          });
         }
-
-        double averageRating =
-            reviewCount > 0 ? totalRating / reviewCount : 0.0;
-
-        String popularService = serviceCountMap.entries
-            .reduce((a, b) => a.value > b.value ? a : b)
-            .key;
-
-        salonResults.add({
-          'salonId': salonDoc.id,
-          'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
-          'salonAddress': salonDoc['address'] ?? 'Address not available',
-          'rating': averageRating,
-          'popularService': popularService,
-          'imageUrl':
-              salonDoc['image_url'] ?? 'assets/images/default_salon.jpg',
-          'openTime': salonDoc['open_time'] ?? 'N/A',
-          'closeTime': salonDoc['close_time'] ?? 'N/A',
-          'status': salonDoc['status'] ?? 'Closed',
-        });
       }
-    }
 
-    setState(() {
-      salonsWithPopularService = salonResults;
-    });
+      // Update state with fetched data
+      setState(() {
+        salonsWithPopularService = salonResults;
+      });
+    } catch (e) {
+      print("Error fetching salons with popular services: $e");
+      setState(() {
+        salonsWithPopularService = [];
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load popular services.")),
+      );
+    }
   }
 
   @override

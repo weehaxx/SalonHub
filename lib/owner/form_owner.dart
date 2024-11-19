@@ -209,6 +209,7 @@ class _FormOwnerState extends State<FormOwner> {
         'latitude': _latitude,
         'longitude': _longitude,
         'owner_uid': currentUser!.uid,
+        'status': 'Open', // Add the default status here
       };
 
       // Prepare payment data
@@ -221,8 +222,7 @@ class _FormOwnerState extends State<FormOwner> {
       // Save the salon data to Firestore
       DocumentReference salonRef =
           FirebaseFirestore.instance.collection('salon').doc(currentUser!.uid);
-      await salonRef
-          .set(salonData); // Make sure this line is successfully called
+      await salonRef.set(salonData);
 
       // Save payment method data
       await salonRef.collection('payment_methods').add(paymentData);
