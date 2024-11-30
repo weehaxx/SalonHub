@@ -63,7 +63,7 @@ flutter_icons:
   android: true
   image_path: "assets/images/SalonHubLogo.png"
   adaptive_icon_foreground: "assets/images/SalonHubLogo.png"
-  adaptive_icon_background: "#ffff"
+  adaptive_icon_background: "#355e30"
 
 
   # The "flutter_lints" package below contains a set of recommended lints to

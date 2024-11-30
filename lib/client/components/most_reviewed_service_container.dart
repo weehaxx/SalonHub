@@ -52,6 +52,55 @@ class MostReviewedServiceContainer extends StatelessWidget {
     }
   }
 
+  Future<void> _navigateToSalonDetails(BuildContext context) async {
+    try {
+      // Fetch services and stylists from Firestore
+      List<Map<String, dynamic>> servicesData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('services')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      List<Map<String, dynamic>> stylistsData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('stylists')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      // Debugging: Print fetched data
+      print("Fetched Services: $servicesData");
+      print("Fetched Stylists: $stylistsData");
+
+      // Navigate to SalondetailsClient with fetched data
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SalondetailsClient(
+            salonId: salonId,
+            salonName: salonName,
+            address: salonAddress,
+            services: servicesData,
+            stylists: stylistsData,
+            openTime: openTime,
+            closeTime: closeTime,
+            userId: userId,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load salon details')),
+      );
+      print('Error navigating to details: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isOpen = _isSalonOpen(openTime, closeTime);
@@ -194,22 +243,7 @@ class MostReviewedServiceContainer extends StatelessWidget {
                         Flexible(
                           child: ElevatedButton(
                             onPressed: () async {
-                              // Navigate to salon details with necessary data
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SalondetailsClient(
-                                    salonId: salonId,
-                                    salonName: salonName,
-                                    address: salonAddress,
-                                    services: [], // Fetch services if needed
-                                    stylists: [], // Fetch stylists if needed
-                                    openTime: openTime,
-                                    closeTime: closeTime,
-                                    userId: userId,
-                                  ),
-                                ),
-                              );
+                              _navigateToSalonDetails(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xff355E3B),

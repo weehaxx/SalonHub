@@ -6,7 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salondetails_client.dart';
-import 'package:intl/intl.dart'; // For parsing and formatting time
+import 'package:intl/intl.dart';
 
 class TopSalonContainer extends StatelessWidget {
   final String salonId;
@@ -14,11 +14,12 @@ class TopSalonContainer extends StatelessWidget {
   final String salonAddress;
   final double rating;
   final String imageUrl;
-  final List<Map<String, dynamic>> stylists;
+  final List<Map<String, dynamic>> services; // Ensure this parameter exists
+  final List<Map<String, dynamic>> stylists; // Ensure this parameter exists
   final String openTime;
   final String closeTime;
   final String userId;
-  final String status; // Added status parameter
+  final String status;
 
   const TopSalonContainer({
     Key? key,
@@ -27,11 +28,12 @@ class TopSalonContainer extends StatelessWidget {
     required this.salonAddress,
     required this.rating,
     required this.imageUrl,
-    required this.stylists,
     required this.openTime,
+    required this.services,
+    required this.stylists,
     required this.closeTime,
     required this.userId,
-    required this.status, // Initialize the status parameter
+    required this.status,
   }) : super(key: key);
 
   bool _isSalonOpen(String openTime, String closeTime) {
@@ -107,12 +109,62 @@ class TopSalonContainer extends StatelessWidget {
     }
   }
 
+  Future<void> _navigateToSalonDetails(BuildContext context) async {
+    try {
+      // Fetch services and stylists from Firestore
+      List<Map<String, dynamic>> servicesData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('services')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      List<Map<String, dynamic>> stylistsData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('stylists')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      // Print fetched data for debugging
+      print("Salon ID: $salonId");
+      print("Services: $servicesData");
+      print("Stylists: $stylistsData");
+
+      // Navigate to SalonDetailsClient
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SalondetailsClient(
+            salonId: salonId,
+            salonName: salonName,
+            address: salonAddress,
+            services: servicesData,
+            stylists: stylistsData,
+            openTime: openTime,
+            closeTime: closeTime,
+            userId: userId,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load salon details')),
+      );
+      print('Error navigating to details: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
     return SizedBox(
-      width: 217, // Define width if used in horizontal list
+      width: 217,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Container(
@@ -204,7 +256,6 @@ class TopSalonContainer extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Display status with respective color
                     Text(
                       isOpen
                           ? 'OPEN NOW - $openTime - $closeTime'
@@ -250,22 +301,8 @@ class TopSalonContainer extends StatelessWidget {
                         ),
                         Flexible(
                           child: ElevatedButton(
-                            onPressed: () async {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SalondetailsClient(
-                                    salonId: salonId,
-                                    salonName: salonName,
-                                    address: salonAddress,
-                                    services: [], // Fetch services if needed
-                                    stylists: stylists,
-                                    openTime: openTime,
-                                    closeTime: closeTime,
-                                    userId: userId,
-                                  ),
-                                ),
-                              );
+                            onPressed: () {
+                              _navigateToSalonDetails(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xff355E3B),

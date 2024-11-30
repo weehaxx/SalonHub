@@ -14,14 +14,14 @@ class ServiceSalonContainer extends StatelessWidget {
   final String salonAddress;
   final double rating;
   final String serviceName;
+  final List<Map<String, dynamic>> services; // Ensure this parameter exists
+  final List<Map<String, dynamic>> stylists; // Ensure this parameter exists
   final String servicePrice;
   final String imageUrl;
-  final List<Map<String, dynamic>> services;
-  final List<Map<String, dynamic>> stylists;
   final String openTime;
   final String closeTime;
   final String userId;
-  final String status; // Status from database, can be overridden by time check
+  final String status;
 
   const ServiceSalonContainer({
     Key? key,
@@ -31,9 +31,9 @@ class ServiceSalonContainer extends StatelessWidget {
     required this.rating,
     required this.serviceName,
     required this.servicePrice,
-    required this.imageUrl,
     required this.services,
     required this.stylists,
+    required this.imageUrl,
     required this.openTime,
     required this.closeTime,
     required this.userId,
@@ -47,15 +47,13 @@ class ServiceSalonContainer extends StatelessWidget {
       final parsedOpenTime = dateFormat.parse(openTime);
       final parsedCloseTime = dateFormat.parse(closeTime);
 
-      // Adjust the parsed times to today's date for comparison
       final todayOpenTime = DateTime(now.year, now.month, now.day,
           parsedOpenTime.hour, parsedOpenTime.minute);
       final todayCloseTime = DateTime(now.year, now.month, now.day,
           parsedCloseTime.hour, parsedCloseTime.minute);
 
-      // Handle cases where close time is past midnight (e.g., open at 8 PM, close at 2 AM)
       if (parsedCloseTime.isBefore(parsedOpenTime)) {
-        final tomorrowCloseTime = todayCloseTime.add(Duration(days: 1));
+        final tomorrowCloseTime = todayCloseTime.add(const Duration(days: 1));
         return now.isAfter(todayOpenTime) && now.isBefore(tomorrowCloseTime);
       }
 
@@ -63,6 +61,51 @@ class ServiceSalonContainer extends StatelessWidget {
     } catch (e) {
       print('Error parsing times: $e');
       return false; // Assume closed if parsing fails
+    }
+  }
+
+  Future<void> _navigateToSalonDetails(BuildContext context) async {
+    try {
+      // Fetch services and stylists dynamically
+      List<Map<String, dynamic>> servicesData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('services')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      List<Map<String, dynamic>> stylistsData = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('stylists')
+          .get()
+          .then((snapshot) => snapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList());
+
+      // Navigate to SalonDetailsClient
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SalondetailsClient(
+            salonId: salonId,
+            salonName: salonName,
+            address: salonAddress,
+            services: servicesData,
+            stylists: stylistsData,
+            openTime: openTime,
+            closeTime: closeTime,
+            userId: userId,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load salon details')),
+      );
+      print('Error navigating to details: $e');
     }
   }
 
@@ -117,34 +160,9 @@ class ServiceSalonContainer extends StatelessWidget {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchServices(String salonId) async {
-    QuerySnapshot servicesSnapshot = await FirebaseFirestore.instance
-        .collection('salon')
-        .doc(salonId)
-        .collection('services')
-        .get();
-
-    return servicesSnapshot.docs
-        .map((doc) => doc.data() as Map<String, dynamic>)
-        .toList();
-  }
-
-  Future<List<Map<String, dynamic>>> fetchStylists(String salonId) async {
-    QuerySnapshot stylistsSnapshot = await FirebaseFirestore.instance
-        .collection('salon')
-        .doc(salonId)
-        .collection('stylists')
-        .get();
-
-    return stylistsSnapshot.docs
-        .map((doc) => doc.data() as Map<String, dynamic>)
-        .toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    bool isOpen = _isSalonOpen(
-        openTime, closeTime); // Check if salon is open based on current time
+    bool isOpen = _isSalonOpen(openTime, closeTime);
 
     return SizedBox(
       width: 200,
@@ -239,7 +257,6 @@ class ServiceSalonContainer extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Display "OPEN NOW" or "CLOSED" based on time check with color
                     Text(
                       isOpen
                           ? 'OPEN NOW - $openTime - $closeTime'
@@ -269,17 +286,46 @@ class ServiceSalonContainer extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     if (serviceName.isNotEmpty && servicePrice.isNotEmpty)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Service: $serviceName',
-                            style: GoogleFonts.abel(
-                              fontSize: 12,
-                              color: Colors.black87,
+                          if (rating >= 4.0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade700,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                'Recommended for You',
+                                style: GoogleFonts.abel(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Popular Service: $serviceName',
+                                  style: GoogleFonts.abel(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow
+                                      .ellipsis, // Truncate long text
+                                  maxLines:
+                                      1, // Ensure text stays on a single line
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -290,7 +336,6 @@ class ServiceSalonContainer extends StatelessWidget {
                               color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(height: 10),
                         ],
                       ),
                     Row(
@@ -308,27 +353,8 @@ class ServiceSalonContainer extends StatelessWidget {
                         ),
                         Flexible(
                           child: ElevatedButton(
-                            onPressed: () async {
-                              List<Map<String, dynamic>> servicesData =
-                                  await fetchServices(salonId);
-                              List<Map<String, dynamic>> stylistsData =
-                                  await fetchStylists(salonId);
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SalondetailsClient(
-                                    salonId: salonId,
-                                    salonName: salonName,
-                                    address: salonAddress,
-                                    services: servicesData,
-                                    stylists: stylistsData,
-                                    openTime: openTime,
-                                    closeTime: closeTime,
-                                    userId: userId,
-                                  ),
-                                ),
-                              );
+                            onPressed: () {
+                              _navigateToSalonDetails(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xff355E3B),

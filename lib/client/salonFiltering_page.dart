@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:salon_hub/client/components/most_reviewed_service_container.dart';
 import 'package:salon_hub/client/components/service_salon_container.dart';
 import 'package:salon_hub/client/components/top_salon_container.dart';
+import 'dart:math';
 
 class SalonFilterPage extends StatefulWidget {
   const SalonFilterPage({
@@ -45,78 +46,127 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
 
     setState(() {
       _isLoadingSearchResults = true;
+      _hasSearched = true;
     });
 
-    QuerySnapshot salonsSnapshot =
-        await FirebaseFirestore.instance.collection('salon').get();
-    List<Map<String, dynamic>> salonResults = [];
+    try {
+      QuerySnapshot salonsSnapshot =
+          await FirebaseFirestore.instance.collection('salon').get();
+      List<Map<String, dynamic>> salonResults = [];
 
-    for (var salonDoc in salonsSnapshot.docs) {
-      QuerySnapshot servicesSnapshot =
-          await salonDoc.reference.collection('services').get();
+      for (var salonDoc in salonsSnapshot.docs) {
+        QuerySnapshot servicesSnapshot =
+            await salonDoc.reference.collection('services').get();
 
-      for (var serviceDoc in servicesSnapshot.docs) {
-        Map<String, dynamic> serviceData =
-            serviceDoc.data() as Map<String, dynamic>;
-        String serviceName = (serviceData['name'] ?? 'Unknown').toLowerCase();
-        double servicePrice =
-            double.tryParse(serviceData['price'].toString()) ?? 0.0;
+        for (var serviceDoc in servicesSnapshot.docs) {
+          Map<String, dynamic> serviceData =
+              serviceDoc.data() as Map<String, dynamic>;
 
-        if (serviceName.contains(serviceSearch.toLowerCase())) {
-          bool matchesPriceRange = _selectedPriceRange != null
-              ? _isWithinPriceRange(servicePrice, _selectedPriceRange!)
-              : true;
+          String serviceName = (serviceData['name'] ?? 'Unknown').toLowerCase();
+          double servicePrice =
+              double.tryParse(serviceData['price'].toString()) ?? 0.0;
 
-          if (matchesPriceRange) {
-            double totalRating = 0;
-            QuerySnapshot reviewsSnapshot =
-                await salonDoc.reference.collection('reviews').get();
-            if (reviewsSnapshot.docs.isNotEmpty) {
+          if (serviceName.contains(serviceSearch.toLowerCase())) {
+            bool matchesPriceRange = _selectedPriceRange != null
+                ? _isWithinPriceRange(servicePrice, _selectedPriceRange!)
+                : true;
+
+            if (matchesPriceRange) {
+              double totalRating = 0;
+              int reviewCount = 0;
+
+              QuerySnapshot reviewsSnapshot =
+                  await salonDoc.reference.collection('reviews').get();
               for (var reviewDoc in reviewsSnapshot.docs) {
-                totalRating += reviewDoc['rating'] as double;
+                totalRating += (reviewDoc['rating'] as num?)?.toDouble() ?? 0.0;
+                reviewCount++;
               }
+
+              double averageRating =
+                  reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+              // Extract open and close time
+              String openTime = salonDoc['open_time'] ?? 'N/A';
+              String closeTime = salonDoc['close_time'] ?? 'N/A';
+
+              salonResults.add({
+                'salonId': salonDoc.id,
+                'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
+                'salonAddress': salonDoc['address'] ?? 'Address not available',
+                'serviceName': serviceData['name'] ?? 'Unknown Service',
+                'servicePrice': servicePrice,
+                'averageServiceRating': averageRating,
+                'reviewCount': reviewCount,
+                'imageUrl': salonDoc['image_url'] ?? 'default_image_url',
+                'popularService': serviceData['name'],
+                'popularServicePrice': servicePrice,
+                'openTime': openTime, // Include open time
+                'closeTime': closeTime, // Include close time
+              });
             }
-
-            double averageRating = reviewsSnapshot.docs.isNotEmpty
-                ? totalRating / reviewsSnapshot.docs.length
-                : 0.0;
-
-            List<Map<String, dynamic>> services =
-                serviceData['services'] != null
-                    ? List<Map<String, dynamic>>.from(serviceData['services'])
-                    : [];
-
-            QuerySnapshot stylistsSnapshot =
-                await salonDoc.reference.collection('stylists').get();
-            List<Map<String, dynamic>> stylists = stylistsSnapshot.docs
-                .map((stylistDoc) => stylistDoc.data() as Map<String, dynamic>)
-                .toList();
-
-            salonResults.add({
-              'salonId': salonDoc.id,
-              'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
-              'salonAddress': salonDoc['address'] ?? 'Address not available',
-              'rating': averageRating,
-              'imageUrl': salonDoc['image_url'] ?? 'default_image_url',
-              'serviceName': serviceData['name'] ?? 'Unknown Service',
-              'servicePrice': serviceData['price']?.toString() ?? '0',
-              'openTime': salonDoc['open_time'] ?? 'N/A',
-              'closeTime': salonDoc['close_time'] ?? 'N/A',
-              'status': salonDoc['status'] ?? 'Closed',
-              'userId': 'user_id_placeholder',
-              'services': services,
-              'stylists': stylists,
-            });
           }
         }
       }
+
+      // Apply KNN logic
+      List<Map<String, dynamic>> recommendedSalons =
+          _applyKNNAlgorithm(serviceSearch, salonResults);
+
+      setState(() {
+        filteredSalons = recommendedSalons;
+        _isLoadingSearchResults = false;
+      });
+    } catch (e) {
+      print("Error fetching salons: $e");
+      setState(() {
+        _isLoadingSearchResults = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _applyKNNAlgorithm(
+      String searchQuery, List<Map<String, dynamic>> salons) {
+    // Placeholder user preferences (could come from user profile)
+    Map<String, dynamic> userPreferences = {
+      'preferredPrice': 200.0,
+      'preferredRating': 4.0,
+    };
+
+    // Calculate distances based on price and rating
+    for (var salon in salons) {
+      double servicePrice =
+          salon['servicePrice'] ?? 0.0; // Default to 0.0 if null
+      double rating =
+          salon['averageServiceRating'] ?? 0.0; // Default to 0.0 if null
+
+      double priceDifference =
+          (servicePrice - (userPreferences['preferredPrice'] ?? 200.0)).abs();
+      double ratingDifference =
+          (rating - (userPreferences['preferredRating'] ?? 4.0)).abs();
+
+      // Distance metric: Euclidean distance
+      salon['distance'] =
+          sqrt(pow(priceDifference, 2) + pow(ratingDifference, 2));
     }
 
-    setState(() {
-      filteredSalons = salonResults;
-      _hasSearched = true;
-      _isLoadingSearchResults = false;
-    });
+    // Sort salons by distance
+    salons.sort((a, b) => a['distance'].compareTo(b['distance']));
+
+    // Return top-K recommendations (e.g., top 5)
+    return salons.take(5).toList();
+  }
+
+  bool _isWithinPriceRange(double price, String priceRange) {
+    try {
+      List<String> range = priceRange.split(' - ');
+      double minPrice = double.tryParse(range[0]) ?? 0.0;
+      double maxPrice = double.tryParse(range[1]) ?? double.infinity;
+
+      return price >= minPrice && price <= maxPrice;
+    } catch (e) {
+      print("Error in _isWithinPriceRange: $e");
+      return false; // Return false if there's an error
+    }
   }
 
   Future<void> _fetchTopSalons() async {
@@ -160,13 +210,6 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
       topSalons = topSalonResults;
       _isLoadingTopSalons = false;
     });
-  }
-
-  bool _isWithinPriceRange(double price, String priceRange) {
-    List<String> range = priceRange.split(' - ');
-    double minPrice = double.parse(range[0]);
-    double maxPrice = double.parse(range[1]);
-    return price >= minPrice && price <= maxPrice;
   }
 
   @override
@@ -247,95 +290,114 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFaf9f6),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _serviceSearchController,
-                          style: GoogleFonts.abel(fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'Search Services',
-                            prefixIcon: Icon(Icons.search),
-                            labelStyle: GoogleFonts.abel(fontSize: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 12),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          onSubmitted: (value) {
-                            _fetchKNNRecommendedSalons(value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 120,
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedPriceRange,
-                          hint: Text('Price Range',
-                              style: GoogleFonts.abel(fontSize: 14)),
-                          items: priceRanges.map((priceRange) {
-                            return DropdownMenuItem<String>(
-                              value: priceRange,
-                              child: Text(priceRange,
-                                  style: GoogleFonts.abel(fontSize: 12)),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedPriceRange = value;
-                            });
-                            _fetchKNNRecommendedSalons(
-                                _serviceSearchController.text);
-                          },
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 12),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_hasSearched)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            'Recommended Salons for "${_serviceSearchController.text}"',
-                            style: GoogleFonts.abel(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: TextField(
+                            controller: _serviceSearchController,
+                            style: GoogleFonts.abel(fontSize: 14),
+                            decoration: InputDecoration(
+                              labelText: 'Search Services',
+                              prefixIcon: Icon(Icons.search),
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.clear),
+                                onPressed: () {
+                                  // Clear the search text
+                                  _serviceSearchController.clear();
+
+                                  // Reset state and reload data
+                                  setState(() {
+                                    _hasSearched = false;
+                                    filteredSalons.clear();
+                                  });
+
+                                  // Reload top salons and popular services
+                                  _fetchTopSalons();
+                                  _fetchSalonsWithPopularService();
+                                },
+                              ),
+                              labelStyle: GoogleFonts.abel(fontSize: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            onSubmitted: (value) {
+                              _fetchKNNRecommendedSalons(value);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 120,
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedPriceRange,
+                            hint: Text('Price Range',
+                                style: GoogleFonts.abel(fontSize: 14)),
+                            items: priceRanges.map((priceRange) {
+                              return DropdownMenuItem<String>(
+                                value: priceRange,
+                                child: Text(priceRange,
+                                    style: GoogleFonts.abel(fontSize: 12)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedPriceRange = value;
+                              });
+                              _fetchKNNRecommendedSalons(
+                                  _serviceSearchController.text);
+                            },
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
+                              filled: true,
+                              fillColor: Colors.white,
                             ),
                           ),
                         ),
-                        SizedBox(
-                          height: 300,
-                          child: filteredSalons.isEmpty
-                              ? const Center(child: Text("No salons found"))
-                              : SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: filteredSalons.map((salon) {
-                                      return SizedBox(
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_hasSearched)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              'Recommended Salons for "${_serviceSearchController.text}" and rating preferences using KNN',
+                              style: GoogleFonts.abel(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 300,
+                            child: filteredSalons.isEmpty
+                                ? const Center(child: Text("No salons found"))
+                                : SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: filteredSalons.map((salon) {
+                                        return SizedBox(
                                           width: MediaQuery.of(context)
                                                   .size
                                                   .width *
@@ -344,110 +406,137 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                                             salonId: salon['salonId'],
                                             salonName: salon['salonName'],
                                             salonAddress: salon['salonAddress'],
-                                            rating: salon['rating'],
-                                            serviceName: salon['serviceName'],
-                                            servicePrice: salon['servicePrice'],
-                                            imageUrl: salon['imageUrl'],
+                                            rating: (salon[
+                                                        'averageServiceRating'] ??
+                                                    0.0)
+                                                as double, // Default to 0.0 if null
+                                            serviceName:
+                                                salon['popularService'] ??
+                                                    'Unknown Service',
+                                            servicePrice: (salon[
+                                                        'popularServicePrice'] ??
+                                                    0.0)
+                                                .toString(), // Default to 0.0 and convert to String
+                                            imageUrl: salon['imageUrl'] ??
+                                                'default_image_url',
                                             services: salon['services'] ?? [],
                                             stylists: salon['stylists'] ?? [],
-                                            openTime: salon['openTime'],
-                                            closeTime: salon['closeTime'],
-                                            userId: salon['userId'],
-                                            status: salon['status'],
-                                          ));
-                                    }).toList(),
+                                            openTime:
+                                                salon['openTime'] ?? 'N/A',
+                                            closeTime:
+                                                salon['closeTime'] ?? 'N/A',
+                                            userId: salon['userId'] ?? 'N/A',
+                                            status: salon['status'] ?? 'Closed',
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
                                   ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 8),
-                  if (topSalons.isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Top Salons',
-                          style: GoogleFonts.abel(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 250,
-                          child: _isLoadingTopSalons
-                              ? const Center(child: CircularProgressIndicator())
-                              : ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: topSalons.length,
-                                  itemBuilder: (context, index) {
-                                    final salon = topSalons[index];
-                                    return TopSalonContainer(
-                                      salonId: salon['salonId'],
-                                      salonName: salon['salonName'],
-                                      salonAddress: salon['salonAddress'],
-                                      rating: salon['rating'],
-                                      imageUrl: salon['imageUrl'],
-                                      openTime: salon['openTime'],
-                                      closeTime: salon['closeTime'],
-                                      userId: 'user_id_placeholder',
-                                      stylists: [], // Pass any necessary data
-                                      status: salon['status'],
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    const SizedBox(height: 8),
+                    if (topSalons.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Top Salons',
+                            style: GoogleFonts.abel(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 250,
+                            child: _isLoadingTopSalons
+                                ? const Center(
+                                    child: CircularProgressIndicator())
+                                : ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: topSalons.length,
+                                    itemBuilder: (context, index) {
+                                      final salon = topSalons[index];
+                                      return TopSalonContainer(
+                                        salonId: salon['salonId'],
+                                        salonName: salon['salonName'],
+                                        salonAddress: salon['salonAddress'],
+                                        rating: salon['rating'],
+                                        imageUrl: salon['imageUrl'],
+                                        openTime: salon['openTime'],
+                                        closeTime: salon['closeTime'],
+                                        userId: 'user_id_placeholder',
+                                        stylists: [],
+                                        services: [], // Pass any necessary data
+                                        status: salon['status'],
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Popular Service for each salon',
+                      style: GoogleFonts.abel(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Popular Service for each salon',
-                    style: GoogleFonts.abel(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(
-                      height: 275,
-                      child: salonsWithPopularService.isEmpty
-                          ? const Center(child: CircularProgressIndicator())
-                          : ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: salonsWithPopularService.length,
-                              itemBuilder: (context, index) {
-                                var salon = salonsWithPopularService[index];
-                                return MostReviewedServiceContainer(
-                                  salonId: salon['salonId'] ?? '',
-                                  salonName:
-                                      salon['salonName'] ?? 'Unknown Salon',
-                                  salonAddress: salon['salonAddress'] ??
-                                      'Address not available',
-                                  rating: salon['rating'] ?? 0.0,
-                                  popularServiceName: salon['popularService'] ??
-                                      'Service not available',
-                                  imageUrl: salon['imageUrl'] ??
-                                      'assets/images/default_salon.jpg',
-                                  openTime: salon['openTime'] ?? 'N/A',
-                                  closeTime: salon['closeTime'] ?? 'N/A',
-                                  userId: 'user_id_placeholder',
-                                  status: salon['status'],
-                                );
-                              },
-                            ))
-                ],
+                    SizedBox(
+                        height: 275,
+                        child: salonsWithPopularService.isEmpty
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: salonsWithPopularService.length,
+                                itemBuilder: (context, index) {
+                                  var salon = salonsWithPopularService[index];
+                                  return MostReviewedServiceContainer(
+                                    salonId: salon['salonId'] ?? '',
+                                    salonName:
+                                        salon['salonName'] ?? 'Unknown Salon',
+                                    salonAddress: salon['salonAddress'] ??
+                                        'Address not available',
+                                    rating: salon['rating'] ?? 0.0,
+                                    popularServiceName:
+                                        salon['popularService'] ??
+                                            'Service not available',
+                                    imageUrl: salon['imageUrl'] ??
+                                        'assets/images/default_salon.jpg',
+                                    openTime: salon['openTime'] ?? 'N/A',
+                                    closeTime: salon['closeTime'] ?? 'N/A',
+                                    userId: 'user_id_placeholder',
+                                    status: salon['status'],
+                                  );
+                                },
+                              ))
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_isLoadingSearchResults)
-            Container(
-              color: Colors.black.withOpacity(0.3),
-              child: const Center(
-                child: CircularProgressIndicator(),
+            if (_isLoadingSearchResults)
+              Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _onRefresh() async {
+    // Refresh top salons and popular services
+    await _fetchTopSalons();
+    await _fetchSalonsWithPopularService();
+
+    setState(() {
+      _hasSearched = false;
+      filteredSalons.clear();
+    });
   }
 }
