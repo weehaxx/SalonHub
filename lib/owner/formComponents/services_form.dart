@@ -44,83 +44,91 @@ class _ServicesFormState extends State<ServicesForm> {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Services',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xff355E3B),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildDropdownField('Category', _categories, (newValue) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          }),
-          _buildTextField('Service Name', _serviceNameController),
-          _buildNumberField('Service Price', _servicePriceController),
-          const SizedBox(height: 15),
-          ElevatedButton(
-            onPressed: _addService,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff355E3B),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8), // Slightly less rounded
-              ),
-              elevation: 3,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 12), // Adjust padding
-            ),
-            child: const Text(
-              'Add Service',
-              style: TextStyle(
-                  color: Colors.white, fontSize: 16), // Adjusted font size
-            ),
-          ),
-          const SizedBox(height: 20),
           Expanded(
-            child: ListView.builder(
-              itemCount: widget.services.length,
-              itemBuilder: (context, index) {
-                final service = widget.services[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  elevation: 4,
-                  shadowColor: Colors.grey.withOpacity(0.2),
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    title: Text(
-                      service['name'] ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xff355E3B),
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Price: \₱${service['price']} | Category: ${service['category']}',
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        height: 1.5,
-                      ),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () {
-                        setState(() {
-                          widget.services.removeAt(index);
-                        });
-                      },
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Services',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xff355E3B),
                     ),
                   ),
-                );
-              },
+                  const SizedBox(height: 20),
+                  _buildDropdownField('Category', _categories, (newValue) {
+                    setState(() {
+                      _selectedCategory = newValue;
+                    });
+                  }),
+                  _buildTextField('Service Name', _serviceNameController),
+                  _buildNumberField('Service Price', _servicePriceController),
+                  const SizedBox(height: 15),
+                  ElevatedButton(
+                    onPressed: _addService,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff355E3B),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 3,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text(
+                      'Add Service',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ListView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: widget.services.length,
+                    itemBuilder: (context, index) {
+                      final service = widget.services[index];
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        elevation: 4,
+                        shadowColor: Colors.grey.withOpacity(0.2),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          title: Text(
+                            service['name'] ?? '',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xff355E3B),
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Price: \₱${service['price']} | Category: ${service['category']}',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              height: 1.5,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete,
+                                color: Colors.redAccent),
+                            onPressed: () {
+                              setState(() {
+                                widget.services.removeAt(index);
+                              });
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ],

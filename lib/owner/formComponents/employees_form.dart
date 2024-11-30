@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EmployeesForm extends StatefulWidget {
-  final List<Map<String, String>> employees; // Updated to String type
+  final List<Map<String, String>> employees;
 
   const EmployeesForm({required this.employees, super.key});
 
@@ -14,7 +14,6 @@ class _EmployeesFormState extends State<EmployeesForm> {
   final TextEditingController _employeeSpecializationController =
       TextEditingController();
 
-  // List of available service categories
   final List<String> _categories = [
     'Hair',
     'Nail',
@@ -22,7 +21,6 @@ class _EmployeesFormState extends State<EmployeesForm> {
     'Others',
   ];
 
-  // List to store selected categories
   final List<String> _selectedCategories = [];
 
   void _addEmployee() {
@@ -33,9 +31,8 @@ class _EmployeesFormState extends State<EmployeesForm> {
         widget.employees.add({
           'name': _employeeNameController.text,
           'specialization': _employeeSpecializationController.text,
-          'categories':
-              _selectedCategories.join(', '), // Convert list to string
-          'status': 'Available', // Set the status to Available
+          'categories': _selectedCategories.join(', '),
+          'status': 'Available',
         });
         _employeeNameController.clear();
         _employeeSpecializationController.clear();
@@ -56,40 +53,44 @@ class _EmployeesFormState extends State<EmployeesForm> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Employees',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xff355E3B),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildTextField('Employee Name', _employeeNameController),
-          _buildTextField('Specialization', _employeeSpecializationController),
-          _buildCategorySelector(),
-          const SizedBox(height: 15),
-          ElevatedButton(
-            onPressed: _addEmployee,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xff355E3B),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Employees',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff355E3B),
               ),
-              elevation: 3,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text(
-              'Add Employee',
-              style: TextStyle(color: Colors.white, fontSize: 16),
+            const SizedBox(height: 20),
+            _buildTextField('Employee Name', _employeeNameController),
+            _buildTextField(
+                'Specialization', _employeeSpecializationController),
+            _buildCategorySelector(),
+            const SizedBox(height: 15),
+            ElevatedButton(
+              onPressed: _addEmployee,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff355E3B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 3,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text(
+                'Add Employee',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView.builder(
+            const SizedBox(height: 20),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: widget.employees.length,
               itemBuilder: (context, index) {
                 final employee = widget.employees[index];
@@ -129,13 +130,12 @@ class _EmployeesFormState extends State<EmployeesForm> {
                 );
               },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // Widget to build a text field
   Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
@@ -164,7 +164,6 @@ class _EmployeesFormState extends State<EmployeesForm> {
     );
   }
 
-  // Widget to build a multi-select category selector
   Widget _buildCategorySelector() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),

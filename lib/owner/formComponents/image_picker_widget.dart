@@ -27,7 +27,6 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
       }
     } catch (e) {
       print('Failed to pick image: $e');
-      // Optionally, show a snackbar or alert dialog to inform the user
     }
   }
 
@@ -43,6 +42,19 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Please take a clear photo of your salon entrance to ensure proper identification.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
         GestureDetector(
           onTap: _pickImage,
           child: Container(
@@ -65,8 +77,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                     borderRadius: BorderRadius.circular(20),
                     child: Image.file(
                       widget.selectedImage!,
-                      fit: BoxFit
-                          .contain, // Adjusts the image to fit within the container
+                      fit: BoxFit.contain,
                       width: double.infinity,
                       height: double.infinity,
                     ),

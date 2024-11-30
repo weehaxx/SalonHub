@@ -6,8 +6,7 @@ class PaymentMethodForm extends StatefulWidget {
   const PaymentMethodForm({super.key});
 
   @override
-  PaymentMethodFormState createState() =>
-      PaymentMethodFormState(); // Public class name
+  PaymentMethodFormState createState() => PaymentMethodFormState();
 }
 
 class PaymentMethodFormState extends State<PaymentMethodForm> {
@@ -34,26 +33,28 @@ class PaymentMethodFormState extends State<PaymentMethodForm> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Payment Methods',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xff355E3B),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Payment Methods',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff355E3B),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          _buildPaymentMethodSelector(),
-          if (_selectedPaymentMethod == 'Gcash' ||
-              _selectedPaymentMethod == 'Paymaya')
-            _buildTextField('Phone Number', _phoneNumberController, false),
-          if (_selectedPaymentMethod == 'Bank Transfer')
-            _buildTextField('Account Number', _accountNumberController, true),
-          _buildQrCodeUploader(),
-        ],
+            const SizedBox(height: 20),
+            _buildPaymentMethodSelector(),
+            if (_selectedPaymentMethod == 'Gcash' ||
+                _selectedPaymentMethod == 'Paymaya')
+              _buildTextField('Phone Number', _phoneNumberController, false),
+            if (_selectedPaymentMethod == 'Bank Transfer')
+              _buildTextField('Account Number', _accountNumberController, true),
+            _buildQrCodeUploader(),
+          ],
+        ),
       ),
     );
   }
@@ -136,7 +137,7 @@ class PaymentMethodFormState extends State<PaymentMethodForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Upload QR Code (Optional)',
+            'Upload QR Code',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

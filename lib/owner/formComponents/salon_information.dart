@@ -380,46 +380,113 @@ class _FullScreenMapState extends State<FullScreenMap> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true, // Extends the body behind the app bar
       appBar: AppBar(
-        title: const Text('Select Location'),
-        backgroundColor: const Color(0xff355E3B),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, _selectedLocation);
+        backgroundColor: Colors.transparent, // Transparent background
+        elevation: 0, // Removes the shadow from the app bar
+        title: Text(
+          'Select Location',
+          style: TextStyle(
+            color: Colors.black, // Black text color for visibility
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true, // Centers the title
+        iconTheme: IconThemeData(color: Colors.black), // Black icon color
+      ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: (GoogleMapController controller) {},
+            onTap: (tappedPoint) {
+              setState(() {
+                _selectedLocation = tappedPoint;
+              });
             },
-            child: const Text(
-              'Confirm',
-              style: TextStyle(color: Colors.white),
+            initialCameraPosition: CameraPosition(
+              target: widget.initialPosition,
+              zoom: 14,
+            ),
+            markers: _selectedLocation != null
+                ? {
+                    Marker(
+                      markerId: const MarkerId('selectedLocation'),
+                      position: _selectedLocation!,
+                      draggable: true,
+                      onDragEnd: (newPosition) {
+                        setState(() {
+                          _selectedLocation = newPosition;
+                        });
+                      },
+                    ),
+                  }
+                : {},
+          ),
+          if (_selectedLocation != null)
+            Positioned(
+              bottom: 80,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Selected Location:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)}',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Positioned(
+            bottom: 20,
+            left: 60,
+            right: 60,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, _selectedLocation);
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                backgroundColor: const Color(0xff355E3B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Confirm Location',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ),
         ],
-      ),
-      body: GoogleMap(
-        onMapCreated: (GoogleMapController controller) {},
-        onTap: (tappedPoint) {
-          setState(() {
-            _selectedLocation = tappedPoint;
-          });
-        },
-        initialCameraPosition: CameraPosition(
-          target: widget.initialPosition,
-          zoom: 14,
-        ),
-        markers: _selectedLocation != null
-            ? {
-                Marker(
-                  markerId: const MarkerId('selectedLocation'),
-                  position: _selectedLocation!,
-                  draggable: true,
-                  onDragEnd: (newPosition) {
-                    setState(() {
-                      _selectedLocation = newPosition;
-                    });
-                  },
-                ),
-              }
-            : {},
       ),
     );
   }
