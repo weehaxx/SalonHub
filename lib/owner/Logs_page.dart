@@ -14,7 +14,7 @@ class _LogsPageState extends State<LogsPage> {
   final User? _user = FirebaseAuth.instance.currentUser;
 
   // Fetch logs from Firestore in descending order of timestamp
-  Stream<QuerySnapshot> _getLogsStream() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> _getLogsStream() {
     return FirebaseFirestore.instance
         .collection('salon')
         .doc(_user?.uid)
@@ -23,7 +23,69 @@ class _LogsPageState extends State<LogsPage> {
         .snapshots();
   }
 
-  // Format the action type and description more clearly
+  // Log an action manually
+  Future<void> _logAction(String actionType, String description) async {
+    if (_user == null) return;
+
+    final salonDocRef =
+        FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
+
+    await salonDocRef.collection('logs').add({
+      'actionType': actionType,
+      'description': description,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Example: Add a service and log the action
+  Future<void> _addService(String serviceName, double price) async {
+    if (_user == null) return;
+
+    final salonDocRef =
+        FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
+
+    // Add the new service to the services collection
+    await salonDocRef.collection('services').add({
+      'name': serviceName,
+      'price': price,
+    });
+
+    // Log the action
+    await _logAction('Service Added', 'Added a new service: $serviceName');
+  }
+
+  // Example: Update salon information and log the action
+  Future<void> _updateSalonInfo(Map<String, dynamic> updates) async {
+    if (_user == null) return;
+
+    final salonDocRef =
+        FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
+
+    await salonDocRef.update(updates);
+
+    // Log the action
+    final changes =
+        updates.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+    await _logAction('Salon Info Updated', 'Updated fields: $changes');
+  }
+
+  // Example: Change the salon image and log the action
+  Future<void> _changeSalonImage(String newImageUrl) async {
+    if (_user == null) return;
+
+    final salonDocRef =
+        FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
+
+    await salonDocRef.update({'imageUrl': newImageUrl});
+
+    // Log the action
+    await _logAction(
+      'Salon Image Changed',
+      'Updated the salon image to $newImageUrl',
+    );
+  }
+
+  // Format and display log entries
   Widget _buildLogCard(Map<String, dynamic> log) {
     final timestamp = log['timestamp'] as Timestamp?;
     final formattedDate = timestamp != null
@@ -66,6 +128,22 @@ class _LogsPageState extends State<LogsPage> {
         logIcon = Icons.info;
         iconColor = Colors.blueGrey;
         break;
+      case 'Inventory Updated':
+        logIcon = Icons.inventory;
+        iconColor = Colors.purple;
+        break;
+      case 'Appointment Scheduled':
+        logIcon = Icons.event;
+        iconColor = Colors.teal;
+        break;
+      case 'Salon Image Changed':
+        logIcon = Icons.image;
+        iconColor = Colors.blueAccent;
+        break;
+      case 'Payment Method Changed':
+        logIcon = Icons.payment;
+        iconColor = Colors.greenAccent;
+        break;
       default:
         logIcon = Icons.history;
         iconColor = Colors.grey;
@@ -82,7 +160,7 @@ class _LogsPageState extends State<LogsPage> {
         ),
         title: Text(
           actionType,
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +184,7 @@ class _LogsPageState extends State<LogsPage> {
         title: const Text('Logs'),
         backgroundColor: const Color(0xff355E3B),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _getLogsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -122,8 +200,7 @@ class _LogsPageState extends State<LogsPage> {
           return ListView.builder(
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              final log =
-                  snapshot.data!.docs[index].data() as Map<String, dynamic>;
+              final log = snapshot.data!.docs[index].data();
               return _buildLogCard(log);
             },
           );

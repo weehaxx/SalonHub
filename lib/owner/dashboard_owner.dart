@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import 'package:salon_hub/owner/ChangePaymentMethodPage.dart';
 import 'package:salon_hub/owner/Logs_page.dart';
 import 'package:salon_hub/owner/Reviews_Page.dart';
+import 'package:salon_hub/owner/Salon_Images.dart';
 import 'package:salon_hub/owner/accepted_appointments.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
 import 'package:salon_hub/owner/paid_appointments.dart';
@@ -288,7 +290,51 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SaloninfoOwner(),
+                    builder: (context) =>
+                        const SaloninfoOwner(), // Match the correct widget name
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.image, color: Colors.green[700]),
+              title: Text(
+                'Salon Images',
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const SalonImages(), // Navigate to Salon Images
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading:
+                  Icon(Icons.payment, color: Colors.green[700]), // New icon
+              title: Text(
+                'Change Payment Method', // New item label
+                style: GoogleFonts.abel(
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const ChangePaymentMethodPage(), // New page navigation
                   ),
                 );
               },

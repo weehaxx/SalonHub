@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:salon_hub/owner/edit_salon_info.dart';
 
 class SaloninfoOwner extends StatefulWidget {
@@ -34,9 +35,13 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
             .get();
 
         if (salonSnapshot.docs.isNotEmpty) {
-          // Fetch the first document that matches the UID
+          // Fetch the first document that matches the UID and include the document ID
+          final doc = salonSnapshot.docs.first;
           setState(() {
-            salonData = salonSnapshot.docs.first.data() as Map<String, dynamic>;
+            salonData = {
+              'id': doc.id, // Include document ID
+              ...doc.data() as Map<String, dynamic>, // Merge document data
+            };
             isLoading = false;
           });
         } else {
@@ -64,9 +69,10 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : salonData != null
-              ? Padding(
+              ? SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildInfoCard(salonData!['salon_name'], Icons.store),
                       _buildInfoCard(salonData!['owner_name'], Icons.person),
@@ -79,6 +85,8 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
                           salonData!['open_time'], Icons.access_time),
                       _buildInfoCard(
                           salonData!['close_time'], Icons.access_time_filled),
+                      const SizedBox(height: 20),
+                      _buildGoogleMap(), // Add Google Map widget
                     ],
                   ),
                 )
@@ -96,7 +104,7 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => EditSalonInfo(
-                      salonData: salonData!,
+                      salonData: salonData!, // Pass the salon data with the ID
                     ),
                   ),
                 ).then((value) {
@@ -139,6 +147,78 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Helper method to display the salon location on Google Maps
+  Widget _buildGoogleMap() {
+    if (salonData == null ||
+        salonData!['latitude'] == null ||
+        salonData!['longitude'] == null) {
+      return const Center(
+        child: Text(
+          'Location data not available.',
+          style: TextStyle(fontSize: 16, color: Colors.red),
+        ),
+      );
+    }
+
+    LatLng salonLocation = LatLng(
+      salonData!['latitude'],
+      salonData!['longitude'],
+    );
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 15),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Add a header for the map
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: const Color(0xff355E3B),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
+              ),
+            ),
+            child: Text(
+              'Current Location',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          // Display the Google Map
+          SizedBox(
+            height: 300,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: salonLocation,
+                zoom: 14.0,
+              ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('salonLocation'),
+                  position: salonLocation,
+                  infoWindow: InfoWindow(
+                    title: salonData!['salon_name'],
+                    snippet: salonData!['address'],
+                  ),
+                ),
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

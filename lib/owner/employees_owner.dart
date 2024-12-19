@@ -24,7 +24,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   final List<String> categories = [
     'Hair',
     'Nail',
-    'Massage',
+    'Spa',
     'Others',
   ];
 

@@ -30,7 +30,7 @@ class _AddServicePageState extends State<AddServicePage> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   String? _selectedCategory;
-  final List<String> _categories = ['Hair', 'Nail', 'Massage', 'Others'];
+  final List<String> _categories = ['Hair', 'Nail', 'Spa', 'Others'];
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isFormVisible = false;
