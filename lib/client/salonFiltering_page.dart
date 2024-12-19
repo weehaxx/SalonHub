@@ -72,37 +72,38 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                 : true;
 
             if (matchesPriceRange) {
-              double totalRating = 0;
-              int reviewCount = 0;
+              QuerySnapshot reviewsSnapshot = await salonDoc.reference
+                  .collection('reviews')
+                  .where('service', isEqualTo: serviceData['name'])
+                  .get();
 
-              QuerySnapshot reviewsSnapshot =
-                  await salonDoc.reference.collection('reviews').get();
-              for (var reviewDoc in reviewsSnapshot.docs) {
-                totalRating += (reviewDoc['rating'] as num?)?.toDouble() ?? 0.0;
-                reviewCount++;
+              if (reviewsSnapshot.docs.isNotEmpty) {
+                double totalRating = 0;
+                int reviewCount = 0;
+
+                for (var reviewDoc in reviewsSnapshot.docs) {
+                  totalRating +=
+                      (reviewDoc['rating'] as num?)?.toDouble() ?? 0.0;
+                  reviewCount++;
+                }
+
+                double averageServiceRating =
+                    reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+                salonResults.add({
+                  'salonId': salonDoc.id,
+                  'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
+                  'salonAddress':
+                      salonDoc['address'] ?? 'Address not available',
+                  'serviceName': serviceData['name'] ?? 'Unknown Service',
+                  'servicePrice': servicePrice,
+                  'averageServiceRating': averageServiceRating,
+                  'reviewCount': reviewCount,
+                  'imageUrl': salonDoc['image_url'] ?? 'default_image_url',
+                  'openTime': salonDoc['open_time'] ?? 'N/A',
+                  'closeTime': salonDoc['close_time'] ?? 'N/A',
+                });
               }
-
-              double averageRating =
-                  reviewCount > 0 ? totalRating / reviewCount : 0.0;
-
-              // Extract open and close time
-              String openTime = salonDoc['open_time'] ?? 'N/A';
-              String closeTime = salonDoc['close_time'] ?? 'N/A';
-
-              salonResults.add({
-                'salonId': salonDoc.id,
-                'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
-                'salonAddress': salonDoc['address'] ?? 'Address not available',
-                'serviceName': serviceData['name'] ?? 'Unknown Service',
-                'servicePrice': servicePrice,
-                'averageServiceRating': averageRating,
-                'reviewCount': reviewCount,
-                'imageUrl': salonDoc['image_url'] ?? 'default_image_url',
-                'popularService': serviceData['name'],
-                'popularServicePrice': servicePrice,
-                'openTime': openTime, // Include open time
-                'closeTime': closeTime, // Include close time
-              });
             }
           }
         }
@@ -382,7 +383,7 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: Text(
-                              'Recommended Salons for "${_serviceSearchController.text}" and rating preferences using KNN',
+                              'Recommended Salons for ${_serviceSearchController.text}',
                               style: GoogleFonts.abel(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -390,7 +391,7 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                             ),
                           ),
                           SizedBox(
-                            height: 300,
+                            height: 320,
                             child: filteredSalons.isEmpty
                                 ? const Center(child: Text("No salons found"))
                                 : SingleChildScrollView(
@@ -406,17 +407,13 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                                             salonId: salon['salonId'],
                                             salonName: salon['salonName'],
                                             salonAddress: salon['salonAddress'],
-                                            rating: (salon[
-                                                        'averageServiceRating'] ??
-                                                    0.0)
-                                                as double, // Default to 0.0 if null
-                                            serviceName:
-                                                salon['popularService'] ??
-                                                    'Unknown Service',
-                                            servicePrice: (salon[
-                                                        'popularServicePrice'] ??
-                                                    0.0)
-                                                .toString(), // Default to 0.0 and convert to String
+                                            rating: salon[
+                                                    'averageServiceRating'] ??
+                                                0.0, // Default to 0.0 if null
+                                            serviceName: salon['serviceName'] ??
+                                                'Unknown Service',
+                                            servicePrice: salon['servicePrice']
+                                                .toString(), // Convert price to String
                                             imageUrl: salon['imageUrl'] ??
                                                 'default_image_url',
                                             services: salon['services'] ?? [],
@@ -477,41 +474,41 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
                         ],
                       ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Popular Service for each salon',
-                      style: GoogleFonts.abel(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(
-                        height: 275,
-                        child: salonsWithPopularService.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
-                            : ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: salonsWithPopularService.length,
-                                itemBuilder: (context, index) {
-                                  var salon = salonsWithPopularService[index];
-                                  return MostReviewedServiceContainer(
-                                    salonId: salon['salonId'] ?? '',
-                                    salonName:
-                                        salon['salonName'] ?? 'Unknown Salon',
-                                    salonAddress: salon['salonAddress'] ??
-                                        'Address not available',
-                                    rating: salon['rating'] ?? 0.0,
-                                    popularServiceName:
-                                        salon['popularService'] ??
-                                            'Service not available',
-                                    imageUrl: salon['imageUrl'] ??
-                                        'assets/images/default_salon.jpg',
-                                    openTime: salon['openTime'] ?? 'N/A',
-                                    closeTime: salon['closeTime'] ?? 'N/A',
-                                    userId: 'user_id_placeholder',
-                                    status: salon['status'],
-                                  );
-                                },
-                              ))
+                    // Text(
+                    //   'Popular Service for each salon',
+                    //   style: GoogleFonts.abel(
+                    //     fontSize: 16,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
+                    // SizedBox(
+                    //     height: 275,
+                    //     child: salonsWithPopularService.isEmpty
+                    //         ? const Center(child: CircularProgressIndicator())
+                    //         : ListView.builder(
+                    //             scrollDirection: Axis.horizontal,
+                    //             itemCount: salonsWithPopularService.length,
+                    //             itemBuilder: (context, index) {
+                    //               var salon = salonsWithPopularService[index];
+                    //               return MostReviewedServiceContainer(
+                    //                 salonId: salon['salonId'] ?? '',
+                    //                 salonName:
+                    //                     salon['salonName'] ?? 'Unknown Salon',
+                    //                 salonAddress: salon['salonAddress'] ??
+                    //                     'Address not available',
+                    //                 rating: salon['rating'] ?? 0.0,
+                    //                 popularServiceName:
+                    //                     salon['popularService'] ??
+                    //                         'Service not available',
+                    //                 imageUrl: salon['imageUrl'] ??
+                    //                     'assets/images/default_salon.jpg',
+                    //                 openTime: salon['openTime'] ?? 'N/A',
+                    //                 closeTime: salon['closeTime'] ?? 'N/A',
+                    //                 userId: 'user_id_placeholder',
+                    //                 status: salon['status'],
+                    //               );
+                    //             },
+                    //           ))
                   ],
                 ),
               ),

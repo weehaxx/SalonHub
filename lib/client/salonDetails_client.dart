@@ -47,7 +47,62 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
     await Future.wait([
       _fetchSalonImage(),
       _fetchSalonRating(),
+      _fetchServiceRatings(), // Fetch service ratings
     ]);
+  }
+
+  Future<void> _fetchServiceRatings() async {
+    try {
+      final servicesRef = FirebaseFirestore.instance
+          .collection('salon')
+          .doc(widget.salonId)
+          .collection('services');
+
+      final servicesSnapshot = await servicesRef.get();
+
+      if (servicesSnapshot.docs.isNotEmpty) {
+        List<Map<String, dynamic>> updatedServices = [];
+
+        for (var serviceDoc in servicesSnapshot.docs) {
+          final serviceData = serviceDoc.data();
+          final serviceName = serviceData['name'];
+
+          final reviewsRef = FirebaseFirestore.instance
+              .collection('salon')
+              .doc(widget.salonId)
+              .collection('reviews');
+
+          final reviewsSnapshot =
+              await reviewsRef.where('service', isEqualTo: serviceName).get();
+
+          double totalRating = 0.0;
+          int reviewCount = reviewsSnapshot.docs.length;
+
+          for (var reviewDoc in reviewsSnapshot.docs) {
+            totalRating += reviewDoc['rating'] ?? 0.0;
+          }
+
+          double averageRating =
+              reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+          updatedServices.add({
+            'id': serviceDoc.id,
+            'name': serviceData['name'],
+            'price': serviceData['price'],
+            'category': serviceData['category'],
+            'rating': averageRating,
+            'reviewCount': reviewCount,
+          });
+        }
+
+        setState(() {
+          widget.services.clear();
+          widget.services.addAll(updatedServices);
+        });
+      }
+    } catch (e) {
+      print('Error fetching service ratings: $e');
+    }
   }
 
   Future<void> _fetchSalonImage() async {
@@ -424,8 +479,13 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                     if (_showServices)
                       ..._filterServices().map((service) {
                         return _buildServiceItem(
-                            service['name'], service['price']);
+                          service['name'],
+                          service['price'],
+                          service['rating'] ??
+                              0.0, // Ensure a default rating of 0.0 if not present
+                        );
                       }),
+
                     // Check if no services are available for the selected category
                     if (_showServices && _filterServices().isEmpty)
                       Padding(
@@ -521,47 +581,72 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
     );
   }
 
-  Widget _buildServiceItem(String title, String price) {
+  Widget _buildServiceItem(String title, String price, double rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.grey.withOpacity(0.2),
               spreadRadius: 2,
-              blurRadius: 3,
-              offset: const Offset(0, 2),
+              blurRadius: 5,
+              offset: const Offset(0, 2), // Subtle elevation effect
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.abel(
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Service Title
+                    Text(
+                      title,
+                      style: GoogleFonts.abel(
+                        textStyle: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    // Star Rating
+                    _buildStarRating(rating),
+                  ],
                 ),
               ),
-              Text(
-                'Php $price',
-                style: GoogleFonts.abel(
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              // Price Section
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.attach_money,
+                        color: Color(0xFF28A745),
+                        size: 20,
+                      ),
+                      Text(
+                        price,
+                        style: GoogleFonts.abel(
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF28A745),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 10),
             ],
           ),
         ),
