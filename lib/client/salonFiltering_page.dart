@@ -175,24 +175,27 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
       _isLoadingTopSalons = true;
     });
 
-    QuerySnapshot salonSnapshot =
-        await FirebaseFirestore.instance.collection('salon').get();
-    List<Map<String, dynamic>> topSalonResults = [];
+    try {
+      QuerySnapshot salonSnapshot =
+          await FirebaseFirestore.instance.collection('salon').get();
+      List<Map<String, dynamic>> topSalonResults = [];
 
-    for (var salonDoc in salonSnapshot.docs) {
-      double totalRating = 0;
-      int reviewCount = 0;
+      for (var salonDoc in salonSnapshot.docs) {
+        double totalRating = 0;
+        int reviewCount = 0;
 
-      QuerySnapshot reviewsSnapshot =
-          await salonDoc.reference.collection('reviews').get();
-      for (var reviewDoc in reviewsSnapshot.docs) {
-        totalRating += reviewDoc['rating'] as double;
-        reviewCount++;
-      }
+        // Fetch reviews for the salon
+        QuerySnapshot reviewsSnapshot =
+            await salonDoc.reference.collection('reviews').get();
+        for (var reviewDoc in reviewsSnapshot.docs) {
+          totalRating += (reviewDoc['rating'] as num?)?.toDouble() ?? 0.0;
+          reviewCount++;
+        }
 
-      if (reviewCount > 0) {
-        double averageRating = totalRating / reviewCount;
-        if (averageRating >= 4.0) {
+        if (reviewCount > 0) {
+          double averageRating = totalRating / reviewCount;
+
+          // Include salons with at least 1 review
           topSalonResults.add({
             'salonId': salonDoc.id,
             'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
@@ -205,12 +208,21 @@ class _SalonFilterPageState extends State<SalonFilterPage> {
           });
         }
       }
-    }
 
-    setState(() {
-      topSalons = topSalonResults;
-      _isLoadingTopSalons = false;
-    });
+      setState(() {
+        topSalons = topSalonResults;
+        _isLoadingTopSalons = false;
+      });
+    } catch (e) {
+      print("Error fetching top salons: $e");
+      setState(() {
+        _isLoadingTopSalons = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load top salons.")),
+      );
+    }
   }
 
   @override
