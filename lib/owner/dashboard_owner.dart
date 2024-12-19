@@ -16,6 +16,7 @@ import 'package:salon_hub/owner/cancellation_page.dart';
 import 'package:salon_hub/owner/salonInfo_owner.dart';
 import 'package:salon_hub/owner/service_add.dart';
 import 'package:salon_hub/pages/login_page.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class DashboardOwner extends StatefulWidget {
   const DashboardOwner({super.key});
@@ -39,12 +40,15 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   void initState() {
     super.initState();
     fetchAppointmentsCount();
+    _initializeNotifications();
     fetchSalonDetails();
     fetchPaidAppointmentsTodayCount();
     fetchRescheduleCount();
     fetchCancellationCount();
   }
 
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   Future<void> fetchSalonDetails() async {
     try {
       final salonDoc = await FirebaseFirestore.instance
@@ -62,6 +66,37 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     } catch (e) {
       print('Error fetching salon details: $e');
     }
+  }
+
+  void _initializeNotifications() async {
+    const AndroidInitializationSettings androidInitializationSettings =
+        AndroidInitializationSettings(
+            '@mipmap/ic_launcher'); // Replace with your app icon
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: androidInitializationSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'channel_id', // Unique ID for the notification channel
+      'Salon Notifications', // Channel name
+      channelDescription: 'Notifications for salon updates',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails notificationDetails =
+        NotificationDetails(android: androidDetails);
+
+    await _flutterLocalNotificationsPlugin.show(
+      0, // Notification ID
+      title, // Notification title
+      body, // Notification body
+      notificationDetails,
+    );
   }
 
   Future<void> updateSalonStatus(String newStatus) async {
@@ -98,6 +133,13 @@ class _DashboardOwnerState extends State<DashboardOwner> {
           .where('status', isEqualTo: 'Accepted')
           .get();
 
+      if (pendingQuerySnapshot.docs.length > pendingAppointmentsCount) {
+        _showNotification(
+          'New Appointment Request',
+          'A new appointment request has been made.',
+        );
+      }
+
       setState(() {
         pendingAppointmentsCount = pendingQuerySnapshot.docs.length;
         acceptedAppointmentsCount = acceptedQuerySnapshot.docs.length;
@@ -119,6 +161,13 @@ class _DashboardOwnerState extends State<DashboardOwner> {
           .where('date', isEqualTo: todayDate)
           .get();
 
+      if (paidQuerySnapshot.docs.length > paidAppointmentsTodayCount) {
+        _showNotification(
+          "Today's Appointments",
+          "You have new paid appointments for today.",
+        );
+      }
+
       setState(() {
         paidAppointmentsTodayCount = paidQuerySnapshot.docs.length;
       });
@@ -136,6 +185,13 @@ class _DashboardOwnerState extends State<DashboardOwner> {
           .where('status', isEqualTo: 'Rescheduled')
           .get();
 
+      if (rescheduleQuerySnapshot.docs.length > rescheduleCount) {
+        _showNotification(
+          'Reschedule Request',
+          'A client has requested to reschedule an appointment.',
+        );
+      }
+
       setState(() {
         rescheduleCount = rescheduleQuerySnapshot.docs.length;
       });
@@ -152,6 +208,13 @@ class _DashboardOwnerState extends State<DashboardOwner> {
           .collection('appointments')
           .where('status', isEqualTo: 'Canceled')
           .get();
+
+      if (cancellationQuerySnapshot.docs.length > cancellationCount) {
+        _showNotification(
+          'Cancellation Request',
+          'A client has canceled their appointment.',
+        );
+      }
 
       setState(() {
         cancellationCount = cancellationQuerySnapshot.docs.length;
