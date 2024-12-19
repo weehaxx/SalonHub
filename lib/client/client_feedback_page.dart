@@ -137,37 +137,72 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
           .collection('reviews')
           .doc(reviewId);
 
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot snapshot = await transaction.get(reviewRef);
-
-        if (!snapshot.exists) {
-          throw Exception("Review does not exist!");
-        }
-
-        Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-        int currentUpvotes = data.containsKey('upvotes') ? data['upvotes'] : 0;
-
-        transaction.update(reviewRef, {'upvotes': currentUpvotes + voteChange});
-      });
-
-      // Update user's upvote list
       DocumentReference userRef =
           FirebaseFirestore.instance.collection('users').doc(widget.userId);
 
-      if (hasUpvoted) {
-        await userRef.update({
-          'upvotedReviews': FieldValue.arrayRemove([reviewId]),
-        });
-        _upvotedReviews.remove(reviewId);
-      } else {
-        await userRef.update({
-          'upvotedReviews': FieldValue.arrayUnion([reviewId]),
-        });
-        _upvotedReviews.add(reviewId);
-      }
+      int updatedUpvotes = 0;
 
-      setState(() {});
-      await _fetchReviews();
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        // Fetch review document
+        DocumentSnapshot reviewSnapshot = await transaction.get(reviewRef);
+        if (!reviewSnapshot.exists) {
+          throw Exception("Review document does not exist!");
+        }
+
+        // Fetch or create user document
+        DocumentSnapshot userSnapshot = await transaction.get(userRef);
+
+        Map<String, dynamic> userData;
+        if (!userSnapshot.exists) {
+          // If the user document does not exist, create it with an empty upvotedReviews array
+          userData = {'upvotedReviews': []};
+          transaction.set(userRef, userData);
+        } else {
+          // Safely access user data
+          userData = userSnapshot.data() as Map<String, dynamic>;
+          if (!userData.containsKey('upvotedReviews')) {
+            userData['upvotedReviews'] = [];
+          }
+        }
+
+        // Ensure upvotedReviews is a list
+        List<String> upvotedReviews =
+            List<String>.from(userData['upvotedReviews']);
+
+        // Update review upvotes
+        Map<String, dynamic> reviewData =
+            reviewSnapshot.data() as Map<String, dynamic>;
+        int currentUpvotes = reviewData['upvotes'] ?? 0;
+        updatedUpvotes =
+            currentUpvotes + voteChange; // Calculate updated upvotes
+        transaction.update(reviewRef, {'upvotes': updatedUpvotes});
+
+        // Update user's upvotedReviews
+        if (hasUpvoted) {
+          upvotedReviews.remove(reviewId);
+        } else {
+          upvotedReviews.add(reviewId);
+        }
+
+        transaction.update(userRef, {'upvotedReviews': upvotedReviews});
+      });
+
+      // Update local state
+      setState(() {
+        if (hasUpvoted) {
+          _upvotedReviews.remove(reviewId);
+        } else {
+          _upvotedReviews.add(reviewId);
+        }
+
+        // Update the upvotes count in the local _reviews list
+        for (var review in _reviews) {
+          if (review['id'] == reviewId) {
+            review['upvotes'] = updatedUpvotes;
+            break;
+          }
+        }
+      });
     } catch (e) {
       print('Error toggling upvote: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,14 +281,21 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   @override
   Widget build(BuildContext context) {
     final filteredReviews = _filteredReviews();
-    int maxUpvotes = filteredReviews.isNotEmpty
-        ? filteredReviews
+
+    // Exclude reviews with 0 upvotes
+    final upvotedReviews =
+        filteredReviews.where((review) => review['upvotes'] > 0).toList();
+
+    int maxUpvotes = upvotedReviews.isNotEmpty
+        ? upvotedReviews
             .map((review) => review['upvotes'])
-            .reduce((value, element) => value > element ? value : element)
+            .reduce((a, b) => a > b ? a : b)
         : 0;
-    final mostUpvotedReviews = filteredReviews
+
+    final mostUpvotedReviews = upvotedReviews
         .where((review) => review['upvotes'] == maxUpvotes)
         .toList();
+
     final recentReviews = filteredReviews
         .where((review) => !mostUpvotedReviews.contains(review))
         .toList();
@@ -325,7 +367,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
 
               const SizedBox(height: 20),
 
-              // Display most upvoted reviews
+              // Display most upvoted reviews only if there are reviews with upvotes
               if (mostUpvotedReviews.isNotEmpty) ...[
                 const Text(
                   'Most Upvoted Review(s)',

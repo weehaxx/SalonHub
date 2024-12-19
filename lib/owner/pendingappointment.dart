@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class Pendingappointment extends StatefulWidget {
   const Pendingappointment({super.key});
@@ -17,6 +18,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _pendingAppointmentsStream = _getPendingAppointmentsStream();
   }
 
@@ -27,7 +29,62 @@ class _PendingappointmentState extends State<Pendingappointment> {
         .doc(_user?.uid)
         .collection('appointments')
         .where('status', isEqualTo: 'Pending')
-        .snapshots();
+        .snapshots()
+        .map((snapshot) {
+      for (var doc in snapshot.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        if (data['status'] == 'Pending' && data['notified'] != true) {
+          // Show notification for new booking request
+          _showNotification(
+            'New Booking Request',
+            '${data['userName']} has requested a booking for ${data['services'] ?? 'services'}.',
+          );
+
+          // Mark the notification as sent
+          FirebaseFirestore.instance
+              .collection('salon')
+              .doc(_user?.uid)
+              .collection('appointments')
+              .doc(doc.id)
+              .update({'notified': true});
+        }
+      }
+      return snapshot;
+    });
+  }
+
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  void _initializeNotifications() async {
+    const AndroidInitializationSettings androidInitializationSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: androidInitializationSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'booking_channel', // Unique ID for the channel
+      'Booking Notifications', // Name of the channel
+      channelDescription: 'Notifications for client bookings',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+    const NotificationDetails notificationDetails =
+        NotificationDetails(android: androidNotificationDetails);
+
+    await _flutterLocalNotificationsPlugin.show(
+      0, // Notification ID
+      title, // Title of the notification
+      body, // Body of the notification
+      notificationDetails,
+    );
   }
 
   // Refresh function
@@ -192,7 +249,6 @@ class _PendingappointmentState extends State<Pendingappointment> {
 
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return ListView(
-                // Provides a scrollable area even when no data is available
                 children: [
                   SizedBox(
                     height: MediaQuery.of(context).size.height - kToolbarHeight,
