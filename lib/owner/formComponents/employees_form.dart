@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 class EmployeesForm extends StatefulWidget {
-  final List<Map<String, String>> employees;
+  final List<Map<String, dynamic>> employees;
+  final List<String> allRegisteredStylistNames;
 
-  const EmployeesForm({required this.employees, super.key});
+  const EmployeesForm({
+    required this.employees,
+    required this.allRegisteredStylistNames,
+    super.key,
+  });
 
   @override
   _EmployeesFormState createState() => _EmployeesFormState();
@@ -14,31 +19,25 @@ class _EmployeesFormState extends State<EmployeesForm> {
   final TextEditingController _employeeSpecializationController =
       TextEditingController();
 
-  final List<String> _categories = [
-    'Hair',
-    'Nail',
-    'Spa',
-    'Others',
-  ];
-
-  final List<String> _selectedCategories = [];
+  final List<String> _categories = ['Hair', 'Nail', 'Spa', 'Others'];
+  final Set<String> _selectedCategories = {};
 
   void _addEmployee() {
-    if (_employeeNameController.text.isNotEmpty &&
-        _employeeSpecializationController.text.isNotEmpty &&
-        _selectedCategories.isNotEmpty) {
-      setState(() {
-        widget.employees.add({
-          'name': _employeeNameController.text,
-          'specialization': _employeeSpecializationController.text,
-          'categories': _selectedCategories.join(', '),
-          'status': 'Available',
-        });
-        _employeeNameController.clear();
-        _employeeSpecializationController.clear();
-        _selectedCategories.clear();
-      });
-    } else {
+    final employeeName = _employeeNameController.text.trim();
+    final specialization = _employeeSpecializationController.text.trim();
+
+    final isDuplicateInCurrentSalon = widget.employees.any(
+      (employee) =>
+          employee['name']?.toLowerCase() == employeeName.toLowerCase(),
+    );
+
+    final isDuplicateGlobally = widget.allRegisteredStylistNames.any(
+      (name) => name.toLowerCase() == employeeName.toLowerCase(),
+    );
+
+    if (employeeName.isEmpty ||
+        specialization.isEmpty ||
+        _selectedCategories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -46,7 +45,52 @@ class _EmployeesFormState extends State<EmployeesForm> {
           backgroundColor: Colors.red,
         ),
       );
+      return;
     }
+
+    if (isDuplicateInCurrentSalon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Stylist "$employeeName" is already registered in this salon!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (isDuplicateGlobally) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Stylist "$employeeName" is already registered in another salon!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      widget.employees.add({
+        'name': employeeName,
+        'specialization': specialization,
+        'categories': _selectedCategories.toList(), // Store as a list
+        'status': 'Available',
+      });
+
+      widget.allRegisteredStylistNames.add(employeeName);
+
+      _employeeNameController.clear();
+      _employeeSpecializationController.clear();
+      _selectedCategories.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Stylist added successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   @override
@@ -66,7 +110,7 @@ class _EmployeesFormState extends State<EmployeesForm> {
               ),
             ),
             const SizedBox(height: 20),
-            _buildTextField('Employee Name', _employeeNameController),
+            _buildTextField('Employee Full Name', _employeeNameController),
             _buildTextField(
                 'Specialization', _employeeSpecializationController),
             _buildCategorySelector(),
@@ -112,7 +156,7 @@ class _EmployeesFormState extends State<EmployeesForm> {
                       ),
                     ),
                     subtitle: Text(
-                      'Specialization: ${employee['specialization']}\nCategories: ${employee['categories']}',
+                      'Specialization: ${employee['specialization']}\nCategories: ${employee['categories'].join(', ')}',
                       style: const TextStyle(
                         color: Colors.black87,
                         height: 1.5,
@@ -122,6 +166,8 @@ class _EmployeesFormState extends State<EmployeesForm> {
                       icon: const Icon(Icons.delete, color: Colors.redAccent),
                       onPressed: () {
                         setState(() {
+                          widget.allRegisteredStylistNames
+                              .remove(employee['name']); // Remove globally
                           widget.employees.removeAt(index);
                         });
                       },

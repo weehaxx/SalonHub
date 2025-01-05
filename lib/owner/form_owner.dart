@@ -24,8 +24,13 @@ class _FormOwnerState extends State<FormOwner> {
 
   final GlobalKey<PaymentMethodFormState> _paymentMethodFormKey = GlobalKey();
 
-  final List<Map<String, String>> _services = [];
+  final Map<String, List<Map<String, String>>> _services = {
+    'Male': [],
+    'Female': []
+  }; // Updated to match the new ServicesForm structure
   final List<Map<String, String>> _employees = [];
+  final List<String> _allRegisteredStylistNames =
+      []; // Initialize the stylist names list
 
   final TextEditingController _salonNameController = TextEditingController();
   final TextEditingController _salonOwnerController = TextEditingController();
@@ -45,6 +50,25 @@ class _FormOwnerState extends State<FormOwner> {
   void initState() {
     super.initState();
     currentUser = FirebaseAuth.instance.currentUser;
+    _fetchAllRegisteredStylistNames();
+  }
+
+  Future<void> _fetchAllRegisteredStylistNames() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collectionGroup('stylists').get();
+
+      setState(() {
+        _allRegisteredStylistNames.addAll(
+          snapshot.docs
+              .map((doc) => doc.data()['name'] as String? ?? '')
+              .where((name) => name.isNotEmpty)
+              .toList(),
+        );
+      });
+    } catch (e) {
+      print('Error fetching global stylist names: $e');
+    }
   }
 
   @override
@@ -90,6 +114,8 @@ class _FormOwnerState extends State<FormOwner> {
                       EmployeesForm(
                         key: UniqueKey(),
                         employees: _employees,
+                        allRegisteredStylistNames:
+                            _allRegisteredStylistNames, // Pass global stylist names
                       ),
                       PaymentMethodForm(
                         key: _paymentMethodFormKey,
@@ -224,8 +250,12 @@ class _FormOwnerState extends State<FormOwner> {
       await salonRef.set(salonData);
       await salonRef.collection('payment_methods').add(paymentData);
 
-      for (var service in _services) {
-        await salonRef.collection('services').add(service);
+      for (var entry in _services.entries) {
+        for (var service in entry.value) {
+          await salonRef
+              .collection('services')
+              .add({'main_category': entry.key, ...service});
+        }
       }
 
       for (var employee in _employees) {
@@ -278,7 +308,8 @@ class _FormOwnerState extends State<FormOwner> {
     _addressController.clear();
     _openTimeController.clear();
     _closeTimeController.clear();
-    _services.clear();
+    _services['Male']!.clear();
+    _services['Female']!.clear();
     _employees.clear();
     _selectedImage = null;
     _pageController.jumpToPage(0);
