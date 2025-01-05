@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/salonHomepage_client.dart';
+import 'package:salon_hub/client/user_preferences.dart';
 import 'package:salon_hub/owner/form_owner.dart';
 import 'package:salon_hub/pages/signup_page.dart';
 import 'package:salon_hub/owner/dashboard_owner.dart';
@@ -275,7 +276,7 @@ class _LoginState extends State<Login> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const SalonhomepageClient(),
+            builder: (context) => const UserPreferencesPage(),
           ),
         );
       } else if (role == 'owner') {

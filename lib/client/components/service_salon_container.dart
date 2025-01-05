@@ -163,6 +163,57 @@ class ServiceSalonContainer extends StatelessWidget {
     }
   }
 
+  Future<void> _handleLocationPermission(BuildContext context) async {
+    if (await Permission.location.request().isGranted) {
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        DocumentSnapshot salonData = await FirebaseFirestore.instance
+            .collection('salon')
+            .doc(salonId)
+            .get();
+
+        if (salonData.exists) {
+          double? salonLatitude = salonData['latitude'];
+          double? salonLongitude = salonData['longitude'];
+          String salonName = salonData['salon_name'] ?? 'Unknown Salon';
+
+          if (salonLatitude != null && salonLongitude != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FullMapPage(
+                  userLocation: LatLng(position.latitude, position.longitude),
+                  salonLocation: LatLng(salonLatitude, salonLongitude),
+                  salonName: salonName,
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Salon location is incomplete')),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Salon location not found')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to retrieve salon location')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Location permission is required to continue')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isOpen = _isSalonOpen(openTime, closeTime);
@@ -397,7 +448,7 @@ class ServiceSalonContainer extends StatelessWidget {
                               size: 18,
                             ),
                             onPressed: () {
-                              // Handle location permission and navigation
+                              _handleLocationPermission(context);
                             },
                           ),
                           Flexible(
