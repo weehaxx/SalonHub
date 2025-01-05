@@ -20,6 +20,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   String _stylistStatus = 'Available';
   final Set<String> _stylistCategories = {};
   bool _isFormVisible = false;
+  List<String> allRegisteredStylistNames = [];
 
   final List<String> categories = [
     'Hair',
@@ -32,6 +33,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   void initState() {
     super.initState();
     _retrieveStylists();
+    _retrieveAllRegisteredStylistNames();
   }
 
   Future<void> _retrieveStylists() async {
@@ -160,8 +162,9 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   }
 
   Future<void> _addStylist() async {
-    if (_stylistNameController.text.isEmpty ||
-        _stylistSpecializationController.text.isEmpty) {
+    final stylistName = _stylistNameController.text.trim().toLowerCase();
+
+    if (stylistName.isEmpty || _stylistSpecializationController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill out all fields.'),
@@ -171,48 +174,71 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
       return;
     }
 
-    try {
-      if (salonDocId != null) {
-        final newStylist = {
-          'name': _stylistNameController.text,
-          'specialization': _stylistSpecializationController.text,
-          'status': _stylistStatus,
-          'categories': _stylistCategories.toList(),
-        };
-
-        await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(salonDocId)
-            .collection('stylists')
-            .add(newStylist);
-
-        await _createLog('Add Stylist',
-            'Added stylist ${newStylist['name']} with specialization ${newStylist['specialization']} and status ${newStylist['status']}');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stylist added successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        _stylistNameController.clear();
-        _stylistSpecializationController.clear();
-        _stylistStatus = 'Available';
-        _stylistCategories.clear();
-        setState(() {
-          _isFormVisible = false;
-        });
-
-        _retrieveStylists();
-      }
-    } catch (e) {
+    // Check for duplicates in the current salon
+    if (stylists
+        .any((stylist) => stylist['name'].toLowerCase() == stylistName)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error adding stylist: $e'),
+          content: Text('Stylist "$stylistName" already exists in this salon!'),
           backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    // Check for duplicates globally
+    if (allRegisteredStylistNames
+        .any((name) => name.toLowerCase() == stylistName)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Stylist "$stylistName" is already registered in another salon!',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Add the stylist
+    final newStylist = {
+      'name': stylistName,
+      'specialization': _stylistSpecializationController.text.trim(),
+      'status': _stylistStatus,
+      'categories': _stylistCategories.toList(),
+    };
+
+    if (salonDocId != null) {
+      await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonDocId)
+          .collection('stylists')
+          .add(newStylist);
+
+      await _createLog(
+        'Add Stylist',
+        'Added stylist ${newStylist['name']} with specialization ${newStylist['specialization']} and status ${newStylist['status']}',
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Stylist added successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      _stylistNameController.clear();
+      _stylistSpecializationController.clear();
+      _stylistStatus = 'Available';
+      _stylistCategories.clear();
+
+      setState(() {
+        _isFormVisible = false;
+      });
+
+      // Refresh data
+      await _retrieveStylists();
+      allRegisteredStylistNames.add(stylistName); // Update global list
     }
   }
 
@@ -238,7 +264,13 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
     _stylistSpecializationController.text = stylist['specialization'] ?? '';
     _stylistStatus = stylist['status'] ?? 'Available';
     _stylistCategories.clear();
-    _stylistCategories.addAll(List<String>.from(stylist['categories'] ?? []));
+
+    final categoriesData = stylist['categories'];
+    if (categoriesData is List) {
+      _stylistCategories.addAll(List<String>.from(categoriesData));
+    } else if (categoriesData is String) {
+      _stylistCategories.addAll(categoriesData.split(',').map((e) => e.trim()));
+    }
 
     showDialog(
       context: context,
@@ -257,7 +289,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                       decoration: InputDecoration(
                         labelText: 'Stylist Name',
                         labelStyle: GoogleFonts.abel(),
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -266,7 +298,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                       decoration: InputDecoration(
                         labelText: 'Specialization',
                         labelStyle: GoogleFonts.abel(),
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -278,9 +310,11 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                           selected: _stylistCategories.contains(category),
                           onSelected: (isSelected) {
                             setState(() {
-                              isSelected
-                                  ? _stylistCategories.add(category)
-                                  : _stylistCategories.remove(category);
+                              if (isSelected) {
+                                _stylistCategories.add(category);
+                              } else {
+                                _stylistCategories.remove(category);
+                              }
                             });
                           },
                         );
@@ -294,24 +328,55 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
           actions: [
             TextButton(
               onPressed: () async {
-                if (_stylistNameController.text.isNotEmpty &&
-                    _stylistSpecializationController.text.isNotEmpty) {
-                  await _updateStylist(stylist['id'], {
-                    'name': _stylistNameController.text,
-                    'specialization': _stylistSpecializationController.text,
-                    'status': _stylistStatus,
-                    'categories': _stylistCategories.toList(),
-                  });
-                  Navigator.of(context).pop();
-                  _retrieveStylists();
-                } else {
+                final newName =
+                    _stylistNameController.text.trim().toLowerCase();
+                if (newName.isEmpty ||
+                    _stylistSpecializationController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Please fill out all fields.'),
                       backgroundColor: Colors.red,
                     ),
                   );
+                  return;
                 }
+
+                // Check for local duplicates (excluding current stylist)
+                if (stylists.any((s) =>
+                    s['name'].toLowerCase() == newName &&
+                    s['id'] != stylist['id'])) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Stylist "$newName" already exists!'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                // Check for global duplicates
+                if (allRegisteredStylistNames.any((name) =>
+                    name.toLowerCase() == newName && name != stylist['name'])) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Stylist "$newName" is already registered in another salon!',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                await _updateStylist(stylist['id'], {
+                  'name': newName,
+                  'specialization': _stylistSpecializationController.text,
+                  'status': _stylistStatus,
+                  'categories': _stylistCategories.toList(),
+                });
+
+                Navigator.of(context).pop();
+                await _retrieveStylists(); // Refresh data
               },
               child: Text('Save', style: GoogleFonts.abel()),
             ),
@@ -323,6 +388,25 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
         );
       },
     );
+  }
+
+  Future<void> _retrieveAllRegisteredStylistNames() async {
+    try {
+      QuerySnapshot stylistSnapshot =
+          await FirebaseFirestore.instance.collectionGroup('stylists').get();
+
+      setState(() {
+        allRegisteredStylistNames = stylistSnapshot.docs
+            .map(
+              (doc) => (doc.data() as Map<String, dynamic>)['name']
+                  .toString()
+                  .toLowerCase(),
+            )
+            .toList();
+      });
+    } catch (e) {
+      print("Error retrieving all registered stylist names: $e");
+    }
   }
 
   @override
@@ -492,6 +576,15 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
     );
   }
 
+  String _formatCategories(dynamic categories) {
+    if (categories is List) {
+      return categories.join(', ');
+    } else if (categories is String) {
+      return categories; // Already a string
+    }
+    return 'N/A'; // Fallback for unexpected cases
+  }
+
   Widget _buildStylistCard(Map<String, dynamic> stylist) {
     return Card(
       color: Colors.white,
@@ -511,7 +604,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                   GoogleFonts.abel(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Categories: ${stylist['categories'] is List ? (stylist['categories'] as List).join(', ') : stylist['categories']}',
+              'Categories: ${_formatCategories(stylist['categories'])}',
               style: GoogleFonts.abel(),
             ),
             Text(
@@ -543,7 +636,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.edit),
-                  onPressed: () => _editStylist(stylist),
+                  onPressed: () => _editStylist(stylist), // Call _editStylist
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
