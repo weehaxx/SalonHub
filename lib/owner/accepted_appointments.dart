@@ -135,26 +135,6 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
     );
   }
 
-  Future<void> _markAsPaid(String salonId, String appointmentId) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(salonId)
-          .collection('appointments')
-          .doc(appointmentId)
-          .update({'isPaid': true});
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marked as Paid')),
-      );
-    } catch (e) {
-      print('Error marking as paid: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to mark as paid')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,8 +211,6 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                       final appointment =
                           appointmentDoc.data() as Map<String, dynamic>;
                       final userId = appointment['userId'] ?? '';
-                      final appointmentId = appointmentDoc.id;
-                      final salonId = _user?.uid ?? '';
 
                       return FutureBuilder<String>(
                         future: _fetchUserName(userId),
@@ -332,25 +310,6 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                       ),
                                       child: Text(
                                         'See Details',
-                                        style: GoogleFonts.abel(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        _markAsPaid(salonId, appointmentId);
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Mark as Paid',
                                         style: GoogleFonts.abel(
                                           color: Colors.white,
                                         ),

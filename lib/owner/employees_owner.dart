@@ -578,9 +578,11 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
 
   String _formatCategories(dynamic categories) {
     if (categories is List) {
-      return categories.join(', ');
+      // Convert List<dynamic> to List<String> and join
+      return categories.map((e) => e.toString()).join(', ');
     } else if (categories is String) {
-      return categories; // Already a string
+      // Assume comma-separated string
+      return categories;
     }
     return 'N/A'; // Fallback for unexpected cases
   }

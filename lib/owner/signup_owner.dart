@@ -66,6 +66,7 @@ class _SignupOwnerState extends State<SignupOwner> {
   }
 
   // Function to sign up the user
+  // Function to sign up the user
   Future<void> signupUser() async {
     setState(() {
       _emailError = '';
@@ -121,14 +122,18 @@ class _SignupOwnerState extends State<SignupOwner> {
 
         // Save the user's data in Firestore, including owner details
         await FirebaseFirestore.instance
-            .collection('users')
+            .collection('salon') // Use the 'salon' collection for salon owners
             .doc(userCredential.user!.uid)
             .set({
           'email': _emailController.text.trim(),
-          'role': 'owner', // Assign 'owner' role here
+          'role': 'owner', // Assign 'owner' role
           'uid': userCredential.user!.uid,
           'owner_name': _ownerNameController.text.trim(),
           'salon_name': _salonNameController.text.trim(),
+          'isBanned': false, // Default to not banned
+          'banEndDate': null, // Default to no ban date
+          'profileComplete':
+              false, // Add this field for redirecting to FormOwner
         });
 
         // Show success message and navigate to login page
@@ -145,9 +150,20 @@ class _SignupOwnerState extends State<SignupOwner> {
             builder: (context) => const Login(),
           ),
         );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use') {
+          setState(() {
+            _emailError =
+                'This email is already registered. Please use a different email.';
+          });
+        } else {
+          setState(() {
+            _emailError = 'Error: ${e.message}';
+          });
+        }
       } catch (e) {
         setState(() {
-          _emailError = 'Error: ${e.toString()}';
+          _emailError = 'Unexpected error: ${e.toString()}';
         });
       }
     }

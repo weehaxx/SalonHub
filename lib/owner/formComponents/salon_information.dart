@@ -48,20 +48,49 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
     if (currentUser != null) {
       try {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
+            .collection('salon')
             .doc(currentUser.uid)
-            .get();
+            .get()
+            .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw Exception('Fetching salon data timed out.');
+          },
+        );
+
         if (userDoc.exists) {
-          if (!mounted) return; // Check if the widget is still mounted
-          setState(() {
-            widget.salonNameController.text = userDoc['salon_name'] ?? '';
-            widget.salonOwnerController.text = userDoc['owner_name'] ?? '';
-            _isLoading = false;
-          });
+          final data = userDoc.data() as Map<String, dynamic>? ?? {};
+          if (mounted) {
+            setState(() {
+              widget.salonNameController.text = data['salon_name'] ?? '';
+              widget.salonOwnerController.text = data['owner_name'] ?? '';
+              widget.addressController.text = data['address'] ?? '';
+              widget.openTimeController.text = data['open_time'] ?? '';
+              widget.closeTimeController.text = data['close_time'] ?? '';
+            });
+          }
+        } else {
+          print('No salon data found for user ${currentUser.uid}.');
         }
       } catch (e) {
         print('Error fetching salon data: $e');
-        if (!mounted) return; // Check if the widget is still mounted
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to load salon information.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -84,15 +113,22 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
 
   Future<void> _locateMyPosition() async {
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Fetching location timed out.');
+        },
+      );
+
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(currentLatLng, 14.0),
       );
 
-      if (!mounted) return; // Check if the widget is still mounted
       setState(() {
         _currentLocation = currentLatLng;
         _selectedLocation = currentLatLng;
@@ -111,6 +147,18 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
       });
     } catch (e) {
       print('Error locating position: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to fetch location. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -156,54 +204,105 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
 
   Future<void> _submitMyLocation() async {
     try {
-      if (_selectedLocation != null) {
-        final User? currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(currentUser.uid)
-              .update({
-            'latitude': _selectedLocation!.latitude,
-            'longitude': _selectedLocation!.longitude,
-          });
-
-          widget.onLocationSelected(
-              _selectedLocation!.latitude, _selectedLocation!.longitude);
-
-          // Show a confirmation message after successfully saving
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location successfully saved!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // After submitting, update the map marker and camera position
-          _mapController?.animateCamera(
-            CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
-          );
-
-          setState(() {
-            _markers.clear();
-            _markers.add(Marker(
-              markerId: const MarkerId('selectedLocation'),
-              position: _selectedLocation!,
-              draggable: true,
-              onDragEnd: (newPosition) {
-                setState(() {
-                  _selectedLocation = newPosition;
-                });
-              },
-              infoWindow: const InfoWindow(title: 'Submitted Location'),
-            ));
-          });
-        }
+      if (_selectedLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a location before submitting.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
       }
-    } catch (e) {
-      print('Error submitting location: $e');
+
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        throw Exception('User is not logged in.');
+      }
+
+      // Ensure latitude and longitude are valid
+      final double latitude = _selectedLocation!.latitude;
+      final double longitude = _selectedLocation!.longitude;
+
+      if (latitude == 0.0 && longitude == 0.0) {
+        throw Exception('Invalid location coordinates.');
+      }
+
+      final userDocRef =
+          FirebaseFirestore.instance.collection('salon').doc(currentUser.uid);
+
+      // Collect the additional details
+      String address = widget.addressController.text.trim();
+      String openTime = widget.openTimeController.text.trim();
+      String closeTime = widget.closeTimeController.text.trim();
+
+      // Ensure required fields are not empty
+      if (address.isEmpty || openTime.isEmpty || closeTime.isEmpty) {
+        throw Exception(
+            'Address, opening time, and closing time must not be empty.');
+      }
+
+      // Check if the document exists
+      final userDocSnapshot = await userDocRef.get();
+      if (!userDocSnapshot.exists) {
+        // Create the document if it does not exist
+        await userDocRef.set({
+          'latitude': latitude,
+          'longitude': longitude,
+          'address': address,
+          'open_time': openTime,
+          'close_time': closeTime,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        print('Document created for user: ${currentUser.uid}');
+      } else {
+        // Update the document if it exists
+        await userDocRef.update({
+          'latitude': latitude,
+          'longitude': longitude,
+          'address': address,
+          'open_time': openTime,
+          'close_time': closeTime,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('Document updated for user: ${currentUser.uid}');
+      }
+
+      widget.onLocationSelected(latitude, longitude);
+
+      // Show a success message after saving
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to save location. Please try again.'),
+          content: Text('Location and details successfully saved!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Update map marker and camera position
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
+      );
+
+      setState(() {
+        _markers.clear();
+        _markers.add(Marker(
+          markerId: const MarkerId('selectedLocation'),
+          position: _selectedLocation!,
+          draggable: true,
+          onDragEnd: (newPosition) {
+            setState(() {
+              _selectedLocation = newPosition;
+            });
+          },
+          infoWindow: const InfoWindow(title: 'Submitted Location'),
+        ));
+      });
+    } catch (e) {
+      print('Error submitting location: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save location. Error: $e'),
           backgroundColor: Colors.red,
         ),
       );

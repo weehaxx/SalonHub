@@ -88,7 +88,8 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
           updatedServices.add({
             'id': serviceDoc.id,
             'name': serviceData['name'],
-            'price': serviceData['price'],
+            'price':
+                (serviceData['price'] as num).toDouble(), // Ensure double type
             'category': serviceData['category'],
             'rating': averageRating,
             'reviewCount': reviewCount,
@@ -581,7 +582,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
     );
   }
 
-  Widget _buildServiceItem(String title, String price, double rating) {
+  Widget _buildServiceItem(String title, dynamic price, double rating) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
@@ -634,7 +635,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                         size: 20,
                       ),
                       Text(
-                        price,
+                        price.toStringAsFixed(2), // Convert price to String
                         style: GoogleFonts.abel(
                           textStyle: const TextStyle(
                             fontSize: 18,

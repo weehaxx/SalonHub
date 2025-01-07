@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class ServicesForm extends StatefulWidget {
-  final Map<String, List<Map<String, String>>> services;
+  final Map<String, List<Map<String, dynamic>>>
+      services; // Updated to allow dynamic types
 
   const ServicesForm({required this.services, super.key});
 
@@ -22,10 +23,10 @@ class _ServicesFormState extends State<ServicesForm> {
         _servicePriceController.text.isNotEmpty &&
         _selectedMainCategory != null &&
         _selectedCategory != null) {
+      // Check for duplicate service name in the selected main category
       if (_selectedMainCategory != null &&
           widget.services[_selectedMainCategory!]!.any(
               (service) => service['name'] == _serviceNameController.text)) {
-        // Check for duplicate service name in the selected main category
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -39,7 +40,8 @@ class _ServicesFormState extends State<ServicesForm> {
       setState(() {
         widget.services[_selectedMainCategory!]?.add({
           'name': _serviceNameController.text,
-          'price': _servicePriceController.text,
+          'price': double.tryParse(_servicePriceController.text) ??
+              0.0, // Store price as a double
           'category': _selectedCategory!,
         });
         _serviceNameController.clear();
