@@ -1,9 +1,8 @@
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:salon_hub/client/components/nearby_salon_container.dart';
 
 class NearbySalonsPage extends StatefulWidget {
@@ -24,54 +23,82 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
   }
 
   Future<void> _fetchNearbySalons() async {
+  setState(() {
+    _isLoading = true;
+  });
+
+  const double maxDistance = 5.0; // Maximum distance in kilometers
+
+  try {
+    // Fetch user's current location
+    Position userLocation = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    // Fetch salons from Firestore
+    QuerySnapshot salonSnapshot =
+        await FirebaseFirestore.instance.collection('salon').get();
+
+    List<Map<String, dynamic>> nearbySalons = salonSnapshot.docs
+        .map((doc) {
+          final salonData = doc.data() as Map<String, dynamic>;
+          return {
+            'salon_id': doc.id,
+            'salon_name': salonData['salon_name'] ?? 'Unnamed Salon',
+            'address': salonData['address'] ?? 'No Address Available',
+            'latitude': salonData['latitude'],
+            'longitude': salonData['longitude'],
+            'image_url': salonData['image_url'],
+            'rating': salonData['rating'] ?? 0.0,
+            'open_time': salonData['open_time'] ?? 'Unknown',
+            'close_time': salonData['close_time'] ?? 'Unknown',
+            'status': salonData['status'] ?? 'Unknown',
+            'isBanned': salonData['isBanned'] ?? false,
+          };
+        })
+        .where((salon) {
+          // Exclude salons with isBanned set to true
+          if (salon['isBanned'] == true) {
+            return false;
+          }
+
+          if (salon['latitude'] == null || salon['longitude'] == null) {
+            print('Skipping salon due to missing location data: $salon');
+            return false;
+          }
+
+          // Calculate distance
+          double distance = _calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            salon['latitude'],
+            salon['longitude'],
+          );
+
+          salon['distance'] = distance; // Add distance to salon data
+          return distance <= maxDistance;
+        })
+        .toList();
+
+    // Sort salons by distance
+    nearbySalons.sort((a, b) => a['distance'].compareTo(b['distance']));
+
+    if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
+      _nearbySalons = nearbySalons;
+      _isLoading = false;
     });
+  } catch (e) {
+    print("Error fetching nearby salons: $e");
+    if (!mounted) return;
 
-    const double maxDistance = 5.0;
-
-    try {
-      Position userLocation = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      QuerySnapshot salonSnapshot =
-          await FirebaseFirestore.instance.collection('salon').get();
-
-      List<Map<String, dynamic>> nearbySalons = salonSnapshot.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
-          .where((salon) {
-        double salonLat = salon['latitude'];
-        double salonLon = salon['longitude'];
-
-        double distance = _calculateDistance(
-            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
-
-        return distance <= maxDistance;
-      }).map((salon) {
-        double salonLat = salon['latitude'];
-        double salonLon = salon['longitude'];
-
-        double distance = _calculateDistance(
-            userLocation.latitude, userLocation.longitude, salonLat, salonLon);
-
-        return {...salon, 'distance': distance};
-      }).toList();
-
-      nearbySalons.sort((a, b) {
-        return a['distance'].compareTo(b['distance']);
-      });
-
-      if (!mounted) return;
-      setState(() {
-        _nearbySalons = nearbySalons;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print("Error fetching nearby salons: $e");
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
+
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
@@ -93,30 +120,32 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _nearbySalons.isEmpty
-            ? const Center(child: Text("No nearby salons found"))
-            : ListView.builder(
-                padding: EdgeInsets.zero,
-                itemCount: _nearbySalons.length,
-                itemBuilder: (context, index) {
-                  final salon = _nearbySalons[index];
-                  final double rating = salon['rating'] ?? 0.0;
-                  final double distance = salon['distance'];
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _nearbySalons.isEmpty
+              ? const Center(child: Text("No nearby salons found"))
+              : ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: _nearbySalons.length,
+                  itemBuilder: (context, index) {
+                    final salon = _nearbySalons[index];
+                    final double rating = salon['rating'];
+                    final double distance = salon['distance'];
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5.0),
-                    child: NearbySalonContainer(
-                      key: UniqueKey(),
-                      salonId: salon['salon_id'],
-                      rating: rating,
-                      salon: salon,
-                      userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                      distance: distance,
-                    ),
-                  );
-                },
-              );
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5.0),
+                      child: NearbySalonContainer(
+                        key: UniqueKey(),
+                        salonId: salon['salon_id'],
+                        rating: rating,
+                        salon: salon,
+                        userId: 'sample_user_id', // Replace with real user ID
+                        distance: distance,
+                      ),
+                    );
+                  },
+                ),
+    );
   }
 }

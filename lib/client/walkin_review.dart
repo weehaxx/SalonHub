@@ -149,6 +149,37 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         );
       }
 
+      // Add data to `user_interaction` subcollection
+      final userInteractionRef = FirebaseFirestore.instance
+          .collection('user_interaction')
+          .doc(user.uid)
+          .collection('reviews');
+
+      final userInteractionData = {
+        'salonId': widget.salonId,
+        'serviceId': _selectedServiceId,
+        'service': _services.firstWhere(
+            (service) => service['id'] == _selectedServiceId)['name'],
+        'rating': _currentRating,
+        'timestamp': Timestamp.now(),
+      };
+
+      // Add or update the user's review in the user_interaction subcollection
+      final existingReviewQuery = await userInteractionRef
+          .where('salonId', isEqualTo: widget.salonId)
+          .where('serviceId', isEqualTo: _selectedServiceId)
+          .limit(1)
+          .get();
+
+      if (existingReviewQuery.docs.isNotEmpty) {
+        final existingReview = existingReviewQuery.docs.first;
+        await userInteractionRef
+            .doc(existingReview.id)
+            .update(userInteractionData);
+      } else {
+        await userInteractionRef.add(userInteractionData);
+      }
+
       Navigator.pop(context, true); // Close the review page
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

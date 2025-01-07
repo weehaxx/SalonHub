@@ -1,19 +1,18 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salonDetails_client.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart'; // For time formatting and parsing
 
 class NearbySalonContainer extends StatelessWidget {
   final String salonId;
   final double rating;
   final Map<String, dynamic> salon;
-  final String userId; // Add userId here
-  final double? distance; // Add the distance parameter for nearby salons
+  final String userId;
+  final double? distance;
 
   const NearbySalonContainer({
     required Key key,
@@ -21,7 +20,7 @@ class NearbySalonContainer extends StatelessWidget {
     required this.rating,
     required this.salon,
     required this.userId,
-    this.distance, // Add distance here for nearby salons
+    this.distance,
   }) : super(key: key);
 
   bool _isSalonOpen(String openTime, String closeTime) {
@@ -49,44 +48,23 @@ class NearbySalonContainer extends StatelessWidget {
   Future<void> _handleLocationPermission(BuildContext context) async {
     if (await Permission.location.request().isGranted) {
       try {
-        // Get user's current position
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
 
-        // Fetch salon location and name from Firestore
-        DocumentSnapshot salonData = await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(salonId)
-            .get();
-
-        if (salonData.exists) {
-          double? salonLatitude = salonData['latitude'];
-          double? salonLongitude = salonData['longitude'];
-          String salonName = salonData['salon_name'] ?? 'Unknown Salon';
-
-          if (salonLatitude != null && salonLongitude != null) {
-            // Navigate to FullMapPage with user's and salon's location
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => FullMapPage(
-                  userLocation: LatLng(position.latitude, position.longitude),
-                  salonLocation: LatLng(salonLatitude, salonLongitude),
-                  salonName: salonName, // Pass the salon name here
-                ),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullMapPage(
+              userLocation: LatLng(position.latitude, position.longitude),
+              salonLocation: LatLng(
+                salon['latitude'],
+                salon['longitude'],
               ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Salon location is incomplete')),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Salon location not found')),
-          );
-        }
+              salonName: salon['salon_name'] ?? 'Unknown Salon',
+            ),
+          ),
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to retrieve salon location')),
@@ -94,21 +72,27 @@ class NearbySalonContainer extends StatelessWidget {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Location permission is required to continue')),
+        const SnackBar(content: Text('Location permission is required')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final salonName = salon['salon_name'] ?? 'Unknown Salon';
-    final salonAddress = salon['address'] ?? 'No Address Available';
-    final openTime = salon['open_time'] ?? 'Unknown';
-    final closeTime = salon['close_time'] ?? 'Unknown';
-    final services = salon['services'] ?? [];
-    final stylists = salon['stylists'] ?? [];
-    final imageUrl = salon['image_url'];
+    final salonName = salon['salon_name']?.toString() ?? 'Unknown Salon';
+    final salonAddress = salon['address']?.toString() ?? 'No Address Available';
+    final openTime = salon['open_time']?.toString() ?? '9:00 AM';
+    final closeTime = salon['close_time']?.toString() ?? '9:00 PM';
+    final services = (salon['services'] ?? [])
+        .map<Map<String, dynamic>>((service) =>
+            Map<String, dynamic>.from(service as Map<String, dynamic>))
+        .toList();
+    final stylists = (salon['stylists'] ?? [])
+        .map<Map<String, dynamic>>((stylist) =>
+            Map<String, dynamic>.from(stylist as Map<String, dynamic>))
+        .toList();
+    final imageUrl = salon['image_url']?.toString();
+    final double? distanceKm = distance;
 
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
@@ -193,7 +177,6 @@ class NearbySalonContainer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Display open/close status with color
                   Text(
                     isOpen
                         ? 'OPEN NOW - $openTime - $closeTime'
@@ -228,34 +211,28 @@ class NearbySalonContainer extends StatelessWidget {
                           salonAddress,
                           style: GoogleFonts.abel(
                             textStyle: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold),
+                              color: Colors.black54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  if (distance != null)
+                  if (distanceKm != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.directions_walk,
-                              color: Colors.grey, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${distance!.toStringAsFixed(2)} km away',
-                            style: GoogleFonts.abel(
-                              textStyle: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      child: Text(
+                        '${distanceKm.toStringAsFixed(2)} km away',
+                        style: GoogleFonts.abel(
+                          textStyle: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   const SizedBox(height: 10),

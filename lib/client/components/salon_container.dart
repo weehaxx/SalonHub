@@ -7,87 +7,117 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salonDetails_client.dart';
-import 'package:intl/intl.dart'; // For parsing and formatting time
+import 'package:intl/intl.dart';
 
-class SalonContainer extends StatelessWidget {
+class SalonContainer extends StatefulWidget {
   final String salonId;
   final double rating;
   final Map<String, dynamic> salon;
-  final String userId; // Add userId here
-  final double? distance; // Add the distance parameter
+  final String userId;
+  final double? distance;
 
   const SalonContainer({
     required Key key,
     required this.salonId,
     required this.rating,
     required this.salon,
-    required this.userId, // Pass userId here
-    this.distance, // Add distance here
+    required this.userId,
+    this.distance,
   }) : super(key: key);
 
-  bool _isSalonOpen(String openTime, String closeTime) {
-    final DateFormat dateFormat = DateFormat('h:mm a');
+  @override
+  State<SalonContainer> createState() => _SalonContainerState();
+}
+
+class _SalonContainerState extends State<SalonContainer> {
+  bool _isBookmarked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfBookmarked();
+  }
+
+  Future<void> _checkIfBookmarked() async {
     try {
-      DateTime now = DateTime.now();
-      DateTime open = dateFormat.parse(openTime);
-      DateTime close = dateFormat.parse(closeTime);
+      final userDoc = await FirebaseFirestore.instance
+          .collection('user_interaction')
+          .doc(widget.userId)
+          .get();
 
-      open = DateTime(now.year, now.month, now.day, open.hour, open.minute);
-      close = DateTime(now.year, now.month, now.day, close.hour, close.minute);
+      if (userDoc.exists) {
+        final bookmarkedSalons =
+            List<String>.from(userDoc.data()?['bookmarked_salons'] ?? []);
+        setState(() {
+          _isBookmarked = bookmarkedSalons.contains(widget.salonId);
+        });
+      }
+    } catch (e) {
+      print("Error checking bookmark status: $e");
+    }
+  }
 
-      // Handle overnight closing time (e.g., 11:00 PM to 4:00 AM)
-      if (close.isBefore(open)) {
-        close = close.add(Duration(days: 1));
+  Future<void> _toggleBookmark() async {
+    try {
+      final userDocRef = FirebaseFirestore.instance
+          .collection('user_interaction')
+          .doc(widget.userId);
+
+      if (_isBookmarked) {
+        await userDocRef.update({
+          'bookmarked_salons': FieldValue.arrayRemove([widget.salonId]),
+        });
+      } else {
+        await userDocRef.set({
+          'bookmarked_salons': FieldValue.arrayUnion([widget.salonId]),
+        }, SetOptions(merge: true));
       }
 
-      return now.isAfter(open) && now.isBefore(close);
+      setState(() {
+        _isBookmarked = !_isBookmarked;
+      });
     } catch (e) {
-      print('Error parsing open/close time: $e');
-      return false;
+      print("Error toggling bookmark: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update bookmark.')),
+      );
     }
   }
 
   Future<void> _handleLocationPermission(BuildContext context) async {
     if (await Permission.location.request().isGranted) {
       try {
-        // Get user's current position
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
 
-        // Fetch salon location and name from Firestore
         DocumentSnapshot salonData = await FirebaseFirestore.instance
             .collection('salon')
-            .doc(
-                salonId) // Ensure this matches the UID used in `form_owner.dart`
+            .doc(widget.salonId)
             .get();
 
         if (salonData.exists) {
-          // Retrieve latitude, longitude, and salon name from Firestore
           double? salonLatitude = salonData['latitude'];
           double? salonLongitude = salonData['longitude'];
           String salonName = salonData['salon_name'] ?? 'Unknown Salon';
 
           if (salonLatitude != null && salonLongitude != null) {
-            // Navigate to FullMapPage with user's and salon's location
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => FullMapPage(
                   userLocation: LatLng(position.latitude, position.longitude),
                   salonLocation: LatLng(salonLatitude, salonLongitude),
-                  salonName: salonName, // Pass the salon name here
+                  salonName: salonName,
                 ),
               ),
             );
           } else {
-            print('Error: Latitude or longitude is missing for salon $salonId');
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Salon location is incomplete')),
             );
           }
         } else {
-          print('Error: No salon document found for ID $salonId');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Salon location not found')),
           );
@@ -100,28 +130,42 @@ class SalonContainer extends StatelessWidget {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Location permission is required to continue')),
+        const SnackBar(content: Text('Location permission is required')),
       );
+    }
+  }
+
+  bool _isSalonOpen(String openTime, String closeTime) {
+    final DateFormat dateFormat = DateFormat('h:mm a');
+    try {
+      DateTime now = DateTime.now();
+      DateTime open = dateFormat.parse(openTime);
+      DateTime close = dateFormat.parse(closeTime);
+
+      open = DateTime(now.year, now.month, now.day, open.hour, open.minute);
+      close = DateTime(now.year, now.month, now.day, close.hour, close.minute);
+
+      if (close.isBefore(open)) {
+        close = close.add(const Duration(days: 1));
+      }
+
+      return now.isAfter(open) && now.isBefore(close);
+    } catch (e) {
+      print('Error parsing open/close time: $e');
+      return false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final salonName = salon['salon_name'] ?? 'Unknown Salon';
-    final salonAddress = salon['address'] ?? 'No Address Available';
-    final openTime = salon['open_time'] ?? 'Unknown';
-    final closeTime = salon['close_time'] ?? 'Unknown';
-    final imageUrl = salon['image_url'];
-
-    // Ensure services and stylists are properly cast to List<Map<String, dynamic>>
-    final List<Map<String, dynamic>> services = (salon['services'] ?? [])
-        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-        .toList();
-
-    final List<Map<String, dynamic>> stylists = (salon['stylists'] ?? [])
-        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
-        .toList();
+    // Safely handle salon fields with default values
+    final salonName = widget.salon['salon_name']?.toString() ?? 'Unknown Salon';
+    final salonAddress =
+        widget.salon['address']?.toString() ?? 'No Address Available';
+    final openTime = widget.salon['open_time']?.toString() ?? 'Unknown';
+    final closeTime = widget.salon['close_time']?.toString() ?? 'Unknown';
+    final imageUrl = widget.salon['image_url']?.toString();
+    final distance = widget.distance?.toStringAsFixed(2) ?? 'Unknown';
 
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
@@ -187,7 +231,7 @@ class SalonContainer extends StatelessWidget {
                         const Icon(Icons.star, color: Colors.yellow, size: 14),
                         const SizedBox(width: 3),
                         Text(
-                          rating.toStringAsFixed(1),
+                          widget.rating.toStringAsFixed(1),
                           style: GoogleFonts.abel(
                             textStyle: const TextStyle(
                               color: Colors.white,
@@ -240,61 +284,68 @@ class SalonContainer extends StatelessWidget {
                           salonAddress,
                           style: GoogleFonts.abel(
                             textStyle: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold),
+                              color: Colors.black54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  if (distance != null)
+                  if (widget.distance != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.directions_walk,
-                              color: Colors.grey, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${distance!.toStringAsFixed(2)} km away',
-                            style: GoogleFonts.abel(
-                              textStyle: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      child: Text(
+                        '$distance km away',
+                        style: GoogleFonts.abel(
+                          textStyle: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.location_on,
-                          color: Color(0xff355E3B),
-                        ),
-                        onPressed: () {
-                          _handleLocationPermission(context);
-                        },
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.location_on,
+                              color: Color(0xff355E3B),
+                            ),
+                            onPressed: () {
+                              _handleLocationPermission(context);
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              color: _isBookmarked
+                                  ? Colors.black
+                                  : const Color(0xff355E3B),
+                            ),
+                            onPressed: _toggleBookmark,
+                          ),
+                        ],
                       ),
                       Flexible(
                         child: ElevatedButton(
                           onPressed: () async {
                             try {
-                              // Fetch the salon document
                               final salonDoc = await FirebaseFirestore.instance
                                   .collection('salon')
-                                  .doc(salonId)
+                                  .doc(widget.salonId)
                                   .get();
 
                               if (salonDoc.exists) {
-                                // Extract stylist data
                                 final stylistsSnapshot = await salonDoc
                                     .reference
                                     .collection('stylists')
@@ -312,21 +363,18 @@ class SalonContainer extends StatelessWidget {
                                   };
                                 }).toList();
 
-                                // Navigate to salon details
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => SalondetailsClient(
-                                      salonId: salon['salon_id'],
-                                      salonName: salon['salon_name'],
-                                      address: salon['address'],
-                                      services: salon['services'] ?? [],
-                                      stylists: stylists, // Pass stylists here
-                                      openTime: salon['open_time'],
-                                      closeTime: salon['close_time'],
-                                      userId: FirebaseAuth
-                                              .instance.currentUser?.uid ??
-                                          '',
+                                      salonId: widget.salonId,
+                                      salonName: salonName,
+                                      address: salonAddress,
+                                      services: widget.salon['services'] ?? [],
+                                      stylists: stylists,
+                                      openTime: openTime,
+                                      closeTime: closeTime,
+                                      userId: widget.userId,
                                     ),
                                   ),
                                 );
@@ -337,7 +385,7 @@ class SalonContainer extends StatelessWidget {
                                 );
                               }
                             } catch (e) {
-                              print('Error fetching salon or stylists: $e');
+                              print('Error fetching salon details: $e');
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     content:

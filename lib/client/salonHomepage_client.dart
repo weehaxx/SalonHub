@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/components/custom_drawer.dart';
@@ -5,6 +7,7 @@ import 'package:salon_hub/client/editUserPreference.dart';
 import 'package:salon_hub/client/nearbysalon_page';
 
 import 'package:salon_hub/client/personalizedSalonsPage.dart';
+import 'package:salon_hub/client/bookmarkedSalonsPage.dart'; // Import the BookmarkedSalonsPage
 import 'package:salon_hub/pages/login_page.dart';
 
 class SalonhomepageClient extends StatefulWidget {
@@ -23,11 +26,34 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   @override
   void initState() {
     super.initState();
-    // Initialize user data here if required
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data();
+          setState(() {
+            _userName = userData?['name'] ?? 'User';
+            _userEmail = userData?['email'] ?? '';
+            _profileImageUrl = userData?['profileImageUrl'];
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
+    }
   }
 
   Future<void> _logout() async {
-    // Perform logout
+    await FirebaseAuth.instance.signOut();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -44,10 +70,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
   @override
   Widget build(BuildContext context) {
-    // Define pages dynamically inside the build method
     final List<Widget> _pages = [
-      const PersonalizedSalonsPage(), // Display personalized salons on the homepage
+      const PersonalizedSalonsPage(),
       const NearbySalonsPage(),
+      const BookmarkedSalonsPage(), // Add the BookmarkedSalonsPage here
     ];
 
     return Scaffold(
@@ -59,7 +85,11 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
       ),
       appBar: AppBar(
         title: Text(
-          _selectedIndex == 0 ? "Home" : "Nearby Salons",
+          _selectedIndex == 0
+              ? "Home"
+              : _selectedIndex == 1
+                  ? "Nearby Salons"
+                  : "Bookmarked Salons",
           style: GoogleFonts.abel(
             fontSize: 20,
             color: Colors.black,
@@ -107,6 +137,10 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
           BottomNavigationBarItem(
             icon: Icon(Icons.near_me),
             label: "Nearby",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark), // Add the bookmark icon
+            label: "Bookmarks", // Label for the bookmarks tab
           ),
         ],
       ),
