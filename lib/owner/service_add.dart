@@ -388,15 +388,20 @@ class _AddServicePageState extends State<AddServicePage> {
 
                             final services = snapshot.data?.docs ?? [];
                             final filteredServices = services.where((service) {
+                              final data =
+                                  service.data() as Map<String, dynamic>;
+
                               final serviceName =
-                                  service['name'].toString().toLowerCase();
-                              final serviceCategory =
-                                  service['category'].toString().toLowerCase();
-                              final serviceMainCategory =
-                                  service['main_category']
-                                          ?.toString()
-                                          .toLowerCase() ??
-                                      '';
+                                  (data['name'] ?? '').toString().toLowerCase();
+                              final serviceCategory = (data['category'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+                              final serviceMainCategory = data
+                                      .containsKey('main_category')
+                                  ? (data['main_category'] ?? 'Others')
+                                      .toString()
+                                      .toLowerCase()
+                                  : 'Others'; // Default to 'Others' if the field doesn't exist
                               final query =
                                   _searchController.text.toLowerCase();
 
@@ -412,7 +417,6 @@ class _AddServicePageState extends State<AddServicePage> {
 
                               return matchesMainCategory && matchesSearchQuery;
                             }).toList();
-
                             if (filteredServices.isEmpty) {
                               return const Center(
                                   child: Text('No services found.'));

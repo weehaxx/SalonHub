@@ -20,11 +20,6 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
   String? _profileImageUrl;
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
-    PersonalizedSalonsPage(), // Display personalized salons on the homepage
-    NearbySalonsPage(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -49,6 +44,12 @@ class _SalonhomepageClientState extends State<SalonhomepageClient> {
 
   @override
   Widget build(BuildContext context) {
+    // Define pages dynamically inside the build method
+    final List<Widget> _pages = [
+      const PersonalizedSalonsPage(), // Display personalized salons on the homepage
+      const NearbySalonsPage(),
+    ];
+
     return Scaffold(
       drawer: CustomDrawer(
         userName: _userName,

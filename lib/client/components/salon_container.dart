@@ -279,19 +279,59 @@ class SalonContainer extends StatelessWidget {
                       ),
                       Flexible(
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            // Fetch detailed data before navigation if necessary
+                            final salonDoc = await FirebaseFirestore.instance
+                                .collection('salon')
+                                .doc(salonId)
+                                .get();
+                            final salonData = salonDoc.data();
+                            final servicesSnapshot = await salonDoc.reference
+                                .collection('services')
+                                .get();
+                            final stylistsSnapshot = await salonDoc.reference
+                                .collection('stylists')
+                                .get();
+
+                            final services = servicesSnapshot.docs.map((doc) {
+                              final serviceData = doc.data();
+                              return {
+                                'id': doc.id,
+                                'name': serviceData['name'] ?? 'Unknown',
+                                'price': serviceData['price']?.toString() ??
+                                    '0', // Convert price to String
+                                'category':
+                                    serviceData['category'] ?? 'Unknown',
+                              };
+                            }).toList();
+
+                            final stylists = stylistsSnapshot.docs.map((doc) {
+                              final stylistData = doc.data();
+                              return {
+                                'id': doc.id,
+                                'name': stylistData['name'] ?? 'Unknown',
+                                'specialization':
+                                    stylistData['specialization'] ?? 'Unknown',
+                                'status': stylistData['status'] ?? 'Unknown',
+                              };
+                            }).toList();
+
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => SalondetailsClient(
                                   salonId: salonId,
-                                  salonName: salonName,
-                                  address: salonAddress,
+                                  salonName:
+                                      salonData?['salon_name'] ?? 'Unknown',
+                                  address: salonData?['address'] ??
+                                      'No Address Available',
                                   services: services,
                                   stylists: stylists,
-                                  openTime: openTime,
-                                  closeTime: closeTime,
-                                  userId: userId, // Pass userId here
+                                  openTime:
+                                      salonData?['open_time'] ?? 'Unknown',
+                                  closeTime:
+                                      salonData?['close_time'] ?? 'Unknown',
+                                  userId: userId,
                                 ),
                               ),
                             );
