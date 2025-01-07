@@ -79,7 +79,13 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
           int reviewCount = reviewsSnapshot.docs.length;
 
           for (var reviewDoc in reviewsSnapshot.docs) {
-            totalRating += reviewDoc['rating'] ?? 0.0;
+            final dynamic ratingValue = reviewDoc['rating'];
+            // Ensure `rating` is parsed as a number
+            if (ratingValue is num) {
+              totalRating += ratingValue;
+            } else if (ratingValue is String) {
+              totalRating += double.tryParse(ratingValue) ?? 0.0;
+            }
           }
 
           double averageRating =
@@ -88,8 +94,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
           updatedServices.add({
             'id': serviceDoc.id,
             'name': serviceData['name'],
-            'price':
-                (serviceData['price'] as num).toDouble(), // Ensure double type
+            'price': serviceData['price'],
             'category': serviceData['category'],
             'rating': averageRating,
             'reviewCount': reviewCount,
@@ -483,7 +488,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                           service['name'],
                           service['price'],
                           service['rating'] ??
-                              0.0, // Ensure a default rating of 0.0 if not present
+                              0.0, // Default rating of 0.0 if not present
                         );
                       }),
 
@@ -513,6 +518,7 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
             ],
           ),
@@ -640,7 +646,8 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                         ),
                       ),
                       Text(
-                        price.toStringAsFixed(2), // Convert price to String
+                        (double.tryParse(price.toString()) ?? 0.0)
+                            .toStringAsFixed(2), // Ensure price is a double
                         style: GoogleFonts.abel(
                           textStyle: const TextStyle(
                             fontSize: 18,

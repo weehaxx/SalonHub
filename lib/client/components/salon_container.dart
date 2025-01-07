@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -111,9 +112,16 @@ class SalonContainer extends StatelessWidget {
     final salonAddress = salon['address'] ?? 'No Address Available';
     final openTime = salon['open_time'] ?? 'Unknown';
     final closeTime = salon['close_time'] ?? 'Unknown';
-    final services = salon['services'] ?? [];
-    final stylists = salon['stylists'] ?? [];
     final imageUrl = salon['image_url'];
+
+    // Ensure services and stylists are properly cast to List<Map<String, dynamic>>
+    final List<Map<String, dynamic>> services = (salon['services'] ?? [])
+        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final List<Map<String, dynamic>> stylists = (salon['stylists'] ?? [])
+        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+        .toList();
 
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
@@ -198,7 +206,6 @@ class SalonContainer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Display open/close status with color
                   Text(
                     isOpen
                         ? 'OPEN NOW - $openTime - $closeTime'
@@ -242,7 +249,6 @@ class SalonContainer extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // Display the distance if provided
                   if (distance != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -280,61 +286,64 @@ class SalonContainer extends StatelessWidget {
                       Flexible(
                         child: ElevatedButton(
                           onPressed: () async {
-                            // Fetch detailed data before navigation if necessary
-                            final salonDoc = await FirebaseFirestore.instance
-                                .collection('salon')
-                                .doc(salonId)
-                                .get();
-                            final salonData = salonDoc.data();
-                            final servicesSnapshot = await salonDoc.reference
-                                .collection('services')
-                                .get();
-                            final stylistsSnapshot = await salonDoc.reference
-                                .collection('stylists')
-                                .get();
+                            try {
+                              // Fetch the salon document
+                              final salonDoc = await FirebaseFirestore.instance
+                                  .collection('salon')
+                                  .doc(salonId)
+                                  .get();
 
-                            final services = servicesSnapshot.docs.map((doc) {
-                              final serviceData = doc.data();
-                              return {
-                                'id': doc.id,
-                                'name': serviceData['name'] ?? 'Unknown',
-                                'price': serviceData['price']?.toString() ??
-                                    '0', // Convert price to String
-                                'category':
-                                    serviceData['category'] ?? 'Unknown',
-                              };
-                            }).toList();
+                              if (salonDoc.exists) {
+                                // Extract stylist data
+                                final stylistsSnapshot = await salonDoc
+                                    .reference
+                                    .collection('stylists')
+                                    .get();
 
-                            final stylists = stylistsSnapshot.docs.map((doc) {
-                              final stylistData = doc.data();
-                              return {
-                                'id': doc.id,
-                                'name': stylistData['name'] ?? 'Unknown',
-                                'specialization':
-                                    stylistData['specialization'] ?? 'Unknown',
-                                'status': stylistData['status'] ?? 'Unknown',
-                              };
-                            }).toList();
+                                final stylists =
+                                    stylistsSnapshot.docs.map((doc) {
+                                  final data = doc.data();
+                                  return {
+                                    'id': doc.id,
+                                    'name': data['name'] ?? 'Unknown Stylist',
+                                    'specialization':
+                                        data['specialization'] ?? 'N/A',
+                                    'status': data['status'] ?? 'Unavailable',
+                                  };
+                                }).toList();
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SalondetailsClient(
-                                  salonId: salonId,
-                                  salonName:
-                                      salonData?['salon_name'] ?? 'Unknown',
-                                  address: salonData?['address'] ??
-                                      'No Address Available',
-                                  services: services,
-                                  stylists: stylists,
-                                  openTime:
-                                      salonData?['open_time'] ?? 'Unknown',
-                                  closeTime:
-                                      salonData?['close_time'] ?? 'Unknown',
-                                  userId: userId,
-                                ),
-                              ),
-                            );
+                                // Navigate to salon details
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SalondetailsClient(
+                                      salonId: salon['salon_id'],
+                                      salonName: salon['salon_name'],
+                                      address: salon['address'],
+                                      services: salon['services'] ?? [],
+                                      stylists: stylists, // Pass stylists here
+                                      openTime: salon['open_time'],
+                                      closeTime: salon['close_time'],
+                                      userId: FirebaseAuth
+                                              .instance.currentUser?.uid ??
+                                          '',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Salon not found')),
+                                );
+                              }
+                            } catch (e) {
+                              print('Error fetching salon or stylists: $e');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Failed to fetch salon details')),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xff355E3B),
@@ -365,7 +374,7 @@ class SalonContainer extends StatelessWidget {
                             ],
                           ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ],
