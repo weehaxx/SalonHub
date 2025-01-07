@@ -324,7 +324,7 @@ class _LoginState extends State<Login> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const SalonhomepageClient(),
+              builder: (context) => const UserPreferencesPage(),
             ),
           );
         } else {
