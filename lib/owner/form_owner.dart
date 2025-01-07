@@ -24,13 +24,15 @@ class _FormOwnerState extends State<FormOwner> {
 
   final GlobalKey<PaymentMethodFormState> _paymentMethodFormKey = GlobalKey();
 
-  final Map<String, List<Map<String, String>>> _services = {
+  // Updated to allow dynamic types
+  final Map<String, List<Map<String, dynamic>>> _services = {
     'Male': [],
     'Female': []
-  }; // Updated to match the new ServicesForm structure
-  final List<Map<String, String>> _employees = [];
-  final List<String> _allRegisteredStylistNames =
-      []; // Initialize the stylist names list
+  };
+
+  // Updated to allow dynamic types
+  final List<Map<String, dynamic>> _employees = [];
+  final List<String> _allRegisteredStylistNames = [];
 
   final TextEditingController _salonNameController = TextEditingController();
   final TextEditingController _salonOwnerController = TextEditingController();
@@ -58,16 +60,25 @@ class _FormOwnerState extends State<FormOwner> {
       final snapshot =
           await FirebaseFirestore.instance.collectionGroup('stylists').get();
 
-      setState(() {
-        _allRegisteredStylistNames.addAll(
-          snapshot.docs
-              .map((doc) => doc.data()['name'] as String? ?? '')
-              .where((name) => name.isNotEmpty)
-              .toList(),
-        );
-      });
+      if (mounted) {
+        setState(() {
+          _allRegisteredStylistNames.addAll(
+            snapshot.docs
+                .map((doc) => doc.data()['name'] as String? ?? '')
+                .where((name) => name.isNotEmpty)
+                .toList(),
+          );
+        });
+      }
     } catch (e) {
-      print('Error fetching global stylist names: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fetching stylist names: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -114,8 +125,7 @@ class _FormOwnerState extends State<FormOwner> {
                       EmployeesForm(
                         key: UniqueKey(),
                         employees: _employees,
-                        allRegisteredStylistNames:
-                            _allRegisteredStylistNames, // Pass global stylist names
+                        allRegisteredStylistNames: _allRegisteredStylistNames,
                       ),
                       PaymentMethodForm(
                         key: _paymentMethodFormKey,
@@ -195,7 +205,7 @@ class _FormOwnerState extends State<FormOwner> {
     }
 
     setState(() {
-      _isSubmitting = true; // Show loading screen
+      _isSubmitting = true; // Show loading indicator
     });
 
     try {
@@ -221,7 +231,6 @@ class _FormOwnerState extends State<FormOwner> {
 
       String imageUrl = await _uploadImage(_selectedImage!);
       String? qrCodeUrl;
-
       if (qrCodeImage != null) {
         qrCodeUrl = await _uploadImage(qrCodeImage);
       }
@@ -237,17 +246,18 @@ class _FormOwnerState extends State<FormOwner> {
         'longitude': _longitude,
         'owner_uid': currentUser!.uid,
         'status': 'Open',
+        'profileComplete': true,
       };
+
+      DocumentReference salonRef =
+          FirebaseFirestore.instance.collection('salon').doc(currentUser!.uid);
+      await salonRef.set(salonData);
 
       Map<String, dynamic> paymentData = {
         'payment_method': selectedPaymentMethod,
         'contact_info': contactInfo,
         'qr_code_url': qrCodeUrl,
       };
-
-      DocumentReference salonRef =
-          FirebaseFirestore.instance.collection('salon').doc(currentUser!.uid);
-      await salonRef.set(salonData);
       await salonRef.collection('payment_methods').add(paymentData);
 
       for (var entry in _services.entries) {
@@ -273,9 +283,7 @@ class _FormOwnerState extends State<FormOwner> {
       _clearForm();
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const DashboardOwner(),
-        ),
+        MaterialPageRoute(builder: (context) => const DashboardOwner()),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -286,7 +294,7 @@ class _FormOwnerState extends State<FormOwner> {
       );
     } finally {
       setState(() {
-        _isSubmitting = false; // Hide loading screen
+        _isSubmitting = false;
       });
     }
   }

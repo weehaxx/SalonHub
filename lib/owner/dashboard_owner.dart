@@ -8,6 +8,7 @@ import 'package:salon_hub/owner/Logs_page.dart';
 import 'package:salon_hub/owner/Reviews_Page.dart';
 import 'package:salon_hub/owner/Salon_Images.dart';
 import 'package:salon_hub/owner/accepted_appointments.dart';
+import 'package:salon_hub/owner/declined_appointments_page.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
 import 'package:salon_hub/owner/paid_appointments.dart';
 import 'package:salon_hub/owner/pendingappointment.dart';
@@ -32,6 +33,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   int paidAppointmentsTodayCount = 0;
   int rescheduleCount = 0;
   int cancellationCount = 0;
+  int declinedCount = 0;
   String salonName = "Salon Name";
   String ownerName = "Owner Name";
   String status = "Open"; // Initialize salon status
@@ -45,6 +47,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     fetchPaidAppointmentsTodayCount();
     fetchRescheduleCount();
     fetchCancellationCount();
+    fetchDeclinedCount();
   }
 
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
@@ -79,22 +82,23 @@ class _DashboardOwnerState extends State<DashboardOwner> {
   }
 
   Future<void> _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidDetails =
+    const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
-      'channel_id', // Unique ID for the notification channel
-      'Salon Notifications', // Channel name
-      channelDescription: 'Notifications for salon updates',
+      'declined_channel', // Unique ID for the channel
+      'Declined Notifications', // Name of the channel
+      channelDescription: 'Notifications for declined bookings',
       importance: Importance.high,
       priority: Priority.high,
+      ticker: 'ticker',
     );
 
     const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidDetails);
+        NotificationDetails(android: androidNotificationDetails);
 
     await _flutterLocalNotificationsPlugin.show(
       0, // Notification ID
-      title, // Notification title
-      body, // Notification body
+      title, // Title of the notification
+      body, // Body of the notification
       notificationDetails,
     );
   }
@@ -200,6 +204,40 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     }
   }
 
+  Future<void> fetchDeclinedCount() async {
+    try {
+      // Log the UID for debugging
+      print('Fetching declined appointments for UID: ${_user?.uid}');
+
+      // Query Firestore for declined appointments
+      final declinedQuerySnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(_user?.uid)
+          .collection('appointments')
+          .where('status', isEqualTo: 'Declined')
+          .get();
+
+      // Debug log the count fetched
+      print(
+          'Fetched Declined Appointments Count: ${declinedQuerySnapshot.docs.length}');
+
+      // Update the declined count in the UI
+      setState(() {
+        declinedCount = declinedQuerySnapshot.docs.length;
+      });
+
+      // Check if there are new declined appointments and show a notification
+      if (declinedQuerySnapshot.docs.length > declinedCount) {
+        _showNotification(
+          'Declined Booking Update',
+          'A booking was recently declined.',
+        );
+      }
+    } catch (e) {
+      print('Error fetching declined appointments: $e');
+    }
+  }
+
   Future<void> fetchCancellationCount() async {
     try {
       final cancellationQuerySnapshot = await FirebaseFirestore.instance
@@ -240,6 +278,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
     await fetchPaidAppointmentsTodayCount();
     await fetchRescheduleCount();
     await fetchCancellationCount();
+    await fetchDeclinedCount();
   }
 
   Future<void> createLog(String actionType, String description) async {
@@ -301,9 +340,41 @@ class _DashboardOwnerState extends State<DashboardOwner> {
               ),
               child: Column(
                 children: [
-                  const CircleAvatar(
-                    radius: 40,
-                    backgroundImage: AssetImage('assets/images/logo.png'),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('salon')
+                        .doc(_user?.uid)
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator(); // Show a loading indicator while fetching the data
+                      } else if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data == null) {
+                        return const CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.grey,
+                          child:
+                              Icon(Icons.image, size: 40, color: Colors.white),
+                        ); // Show a placeholder image if there's an error or no data
+                      }
+
+                      final salonImage = snapshot.data?.get('image_url') ?? '';
+
+                      if (salonImage.isEmpty) {
+                        return const CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.grey,
+                          child:
+                              Icon(Icons.image, size: 40, color: Colors.white),
+                        ); // Placeholder if no image URL is provided
+                      }
+
+                      return CircleAvatar(
+                        radius: 40,
+                        backgroundImage: NetworkImage(salonImage),
+                      ); // Display the fetched salon image
+                    },
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -644,6 +715,27 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                     ).then((shouldRefresh) {
                       if (shouldRefresh == true) {
                         fetchCancellationCount();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildDashboardItem(
+                  declinedCount.toString(),
+                  "Declined Apppointments",
+                  const Color(0xff355E3B),
+                  const Color(0xFFF9F9F9),
+                  const Icon(Icons.cancel,
+                      size: 40, color: Color.fromARGB(255, 182, 176, 177)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DeclinedAppointmentsPage(),
+                      ),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        fetchDeclinedCount();
                       }
                     });
                   },

@@ -96,6 +96,7 @@ class _SignupClientState extends State<SignupClient> {
   }
 
   // Function to sign up the user and send a verification email
+  // Function to sign up the user and send a verification email
   Future<void> signupUser() async {
     setState(() {
       _nameError = '';
@@ -135,9 +136,20 @@ class _SignupClientState extends State<SignupClient> {
             ),
           ),
         );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use') {
+          setState(() {
+            _emailError =
+                'This email is already registered. Please use a different email.';
+          });
+        } else {
+          setState(() {
+            _emailError = 'Error: ${e.message}';
+          });
+        }
       } catch (e) {
         setState(() {
-          _emailError = 'Error: $e';
+          _emailError = 'Unexpected error: ${e.toString()}';
         });
       } finally {
         setState(() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EmployeesForm extends StatefulWidget {
-  final List<Map<String, dynamic>> employees;
+  final List<Map<String, dynamic>> employees; // Correctly type employees
   final List<String> allRegisteredStylistNames;
 
   const EmployeesForm({
@@ -22,19 +22,23 @@ class _EmployeesFormState extends State<EmployeesForm> {
   final List<String> _categories = ['Hair', 'Nail', 'Spa', 'Others'];
   final Set<String> _selectedCategories = {};
 
+  // Add Employee Function
   void _addEmployee() {
-    final employeeName = _employeeNameController.text.trim();
-    final specialization = _employeeSpecializationController.text.trim();
+    final String employeeName = _employeeNameController.text.trim();
+    final String specialization = _employeeSpecializationController.text.trim();
 
-    final isDuplicateInCurrentSalon = widget.employees.any(
+    // Check for duplicate employees
+    final bool isDuplicateInCurrentSalon = widget.employees.any(
       (employee) =>
-          employee['name']?.toLowerCase() == employeeName.toLowerCase(),
+          (employee['name']?.toString().toLowerCase() ?? '') ==
+          employeeName.toLowerCase(),
     );
 
-    final isDuplicateGlobally = widget.allRegisteredStylistNames.any(
+    final bool isDuplicateGlobally = widget.allRegisteredStylistNames.any(
       (name) => name.toLowerCase() == employeeName.toLowerCase(),
     );
 
+    // Validate input fields
     if (employeeName.isEmpty ||
         specialization.isEmpty ||
         _selectedCategories.isEmpty) {
@@ -70,16 +74,16 @@ class _EmployeesFormState extends State<EmployeesForm> {
       return;
     }
 
+    // Add Employee
     setState(() {
       widget.employees.add({
         'name': employeeName,
         'specialization': specialization,
-        'categories': _selectedCategories.toList(), // Store as a list
+        'categories': _selectedCategories.toList(), // Convert Set to List
         'status': 'Available',
       });
 
       widget.allRegisteredStylistNames.add(employeeName);
-
       _employeeNameController.clear();
       _employeeSpecializationController.clear();
       _selectedCategories.clear();
@@ -132,53 +136,67 @@ class _EmployeesFormState extends State<EmployeesForm> {
               ),
             ),
             const SizedBox(height: 20),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.employees.length,
-              itemBuilder: (context, index) {
-                final employee = widget.employees[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  elevation: 4,
-                  shadowColor: Colors.grey.withOpacity(0.2),
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    title: Text(
-                      employee['name'] ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xff355E3B),
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Specialization: ${employee['specialization']}\nCategories: ${employee['categories'].join(', ')}',
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        height: 1.5,
-                      ),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () {
-                        setState(() {
-                          widget.allRegisteredStylistNames
-                              .remove(employee['name']); // Remove globally
-                          widget.employees.removeAt(index);
-                        });
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
+            _buildEmployeeList(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEmployeeList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: widget.employees.length,
+      itemBuilder: (context, index) {
+        final employee = widget.employees[index];
+
+        // Ensure categories are handled as List<String>
+        final List<String> categories = (employee['categories'] is List)
+            ? (employee['categories'] as List).map((e) => e.toString()).toList()
+            : (employee['categories'] is String)
+                ? employee['categories']
+                    .split(',')
+                    .map((e) => e.trim())
+                    .toList()
+                : [];
+
+        return Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: 4,
+          shadowColor: Colors.grey.withOpacity(0.2),
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            title: Text(
+              employee['name'] ?? '',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xff355E3B),
+              ),
+            ),
+            subtitle: Text(
+              'Specialization: ${employee['specialization'] ?? ''}\nCategories: ${categories.join(', ')}',
+              style: const TextStyle(
+                color: Colors.black87,
+                height: 1.5,
+              ),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.redAccent),
+              onPressed: () {
+                setState(() {
+                  widget.allRegisteredStylistNames.remove(employee['name']);
+                  widget.employees.removeAt(index);
+                });
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
