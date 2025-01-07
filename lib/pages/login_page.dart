@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/salonHomepage_client.dart';
-import 'package:salon_hub/owner/banned_page.dart';
+import 'package:salon_hub/client/user_preferences.dart';
 import 'package:salon_hub/owner/form_owner.dart';
 import 'package:salon_hub/pages/signup_page.dart';
 import 'package:salon_hub/owner/dashboard_owner.dart';
@@ -223,14 +223,11 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> loginUser() async {
-    if (!mounted) return; // Ensure widget is in the tree
-
     setState(() {
       _isLoading = true;
       _loginError = '';
     });
 
-    // Validate email and password
     if (!_validateEmail() || !_validatePassword()) {
       setState(() {
         _isLoading = false;
@@ -242,114 +239,29 @@ class _LoginState extends State<Login> {
       String email = _emailController.text.trim();
       String password = _passwordController.text.trim();
 
-      // Sign in the user
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
       String uid = userCredential.user!.uid;
-
-      // Wait for Firebase to sync user data
-      await FirebaseAuth.instance.currentUser!.reload();
-
-      // Check if the user is a salon owner
-      DocumentSnapshot salonDoc =
-          await FirebaseFirestore.instance.collection('salon').doc(uid).get();
-
-      if (salonDoc.exists) {
-        final salonData = salonDoc.data() as Map<String, dynamic>?;
-
-        // Check if the account is banned
-        if (salonData?['isBanned'] == true) {
-          DateTime? banEndDate;
-
-          // Parse banEndDate if it exists
-          if (salonData?['banEndDate'] != null) {
-            banEndDate = DateTime.parse(salonData?['banEndDate']);
-          }
-
-          // If ban has expired, unban the account
-          if (banEndDate != null && DateTime.now().isAfter(banEndDate)) {
-            await FirebaseFirestore.instance
-                .collection('salon')
-                .doc(uid)
-                .update({
-              'isBanned': false,
-              'banEndDate': null,
-              'missedAppointmentCount': 0, // Reset missed count after unbanning
-            });
-          } else {
-            // Redirect to the BannedPage if the account is still banned
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const BannedPage(),
-              ),
-            );
-            return;
-          }
-        }
-
-        // Check if the owner profile is complete
-        if (salonData?['profileComplete'] == null ||
-            salonData?['profileComplete'] == false) {
-          // Redirect to FormOwner if profile is not complete
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const FormOwner(),
-            ),
-          );
-        } else {
-          // Redirect to DashboardOwner if profile is complete
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const DashboardOwner(),
-            ),
-          );
-        }
-        return;
-      }
-
-      // Check user's role if not a salon owner
-      DocumentSnapshot userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-      if (userDoc.exists) {
-        final userData = userDoc.data() as Map<String, dynamic>?;
-        final role = userData?['role'];
-
-        if (role == 'client') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SalonhomepageClient(),
-            ),
-          );
-        } else {
-          setState(() {
-            _loginError = 'Role not recognized. Please contact support.';
-          });
-        }
-      } else {
-        // If user document is not found, sign out
-        await FirebaseAuth.instance.signOut();
-        setState(() {
-          _loginError = 'User not found. Please try again.';
-        });
-      }
+      await _checkIfUserBlocked(uid);
+    } on FirebaseAuthException {
+      setState(() {
+        _loginError = 'Invalid login credentials. Please try again.';
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loginError = 'An unexpected error occurred. Please try again later.';
-        });
-      }
+      setState(() {
+        _loginError = 'An unexpected error occurred. Please try again later.';
+      });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
+    }
+
+    if (_loginError.isNotEmpty) {
+      setState(() {
+        _passwordController.clear();
+      });
     }
   }
 
@@ -364,7 +276,7 @@ class _LoginState extends State<Login> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const SalonhomepageClient(),
+            builder: (context) => const UserPreferencesPage(),
           ),
         );
       } else if (role == 'owner') {
@@ -389,8 +301,6 @@ class _LoginState extends State<Login> {
           .limit(1)
           .get();
 
-      if (!mounted) return; // Ensure the widget is still in the tree
-
       if (salonQuery.docs.isNotEmpty) {
         Navigator.pushReplacement(
           context,
@@ -407,11 +317,9 @@ class _LoginState extends State<Login> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loginError = 'An error occurred while loading your account.';
-        });
-      }
+      setState(() {
+        _loginError = 'An error occurred while loading your account.';
+      });
     }
   }
 

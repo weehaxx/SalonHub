@@ -629,10 +629,15 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.attach_money,
-                        color: Color(0xFF28A745),
-                        size: 20,
+                      Text(
+                        "Php ",
+                        style: GoogleFonts.abel(
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF28A745),
+                          ),
+                        ),
                       ),
                       Text(
                         price.toStringAsFixed(2), // Convert price to String
