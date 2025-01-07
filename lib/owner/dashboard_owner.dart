@@ -340,11 +340,11 @@ class _DashboardOwnerState extends State<DashboardOwner> {
               ),
               child: Column(
                 children: [
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
                         .collection('salon')
                         .doc(_user?.uid)
-                        .get(),
+                        .snapshots(), // Listen for real-time updates
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const CircularProgressIndicator(); // Show a loading indicator while fetching the data
