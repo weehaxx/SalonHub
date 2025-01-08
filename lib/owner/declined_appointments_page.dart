@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
 
 class DeclinedAppointmentsPage extends StatefulWidget {
   const DeclinedAppointmentsPage({super.key});
@@ -14,12 +16,25 @@ class DeclinedAppointmentsPage extends StatefulWidget {
 class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
   final User? _user = FirebaseAuth.instance.currentUser;
   late Stream<QuerySnapshot> _declinedAppointmentsStream;
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   String? _selectedReason; // Holds the currently selected filter
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _declinedAppointmentsStream = _getDeclinedAppointmentsStream();
+  }
+
+  // Initialize notifications
+  void _initializeNotifications() async {
+    const AndroidInitializationSettings androidInitializationSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: androidInitializationSettings);
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
   // Fetch declined appointments stream
@@ -44,13 +59,35 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
     });
   }
 
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'declined_channel',
+      'Declined Notifications',
+      channelDescription: 'Notifications for declined appointments',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+    const NotificationDetails notificationDetails =
+        NotificationDetails(android: androidNotificationDetails);
+
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final predefinedReasons = [
       'Fully booked',
       'Staff unavailable',
       'Service not available',
-      'Failure to accept or decline appointment', // Added to track this reason
+      'Failure to accept or decline appointment',
       'Other reasons',
     ];
 
@@ -145,6 +182,21 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
                     final appointment =
                         appointmentDoc.data() as Map<String, dynamic>;
 
+                    // Notification example for declined appointments
+                    if (appointment['notified'] != true) {
+                      _showNotification(
+                        'Declined Appointment',
+                        '${appointment['userName'] ?? 'A client'}\'s appointment has been declined.',
+                      );
+
+                      FirebaseFirestore.instance
+                          .collection('salon')
+                          .doc(_user?.uid)
+                          .collection('appointments')
+                          .doc(appointmentDoc.id)
+                          .update({'notified': true});
+                    }
+
                     return Card(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
@@ -165,7 +217,7 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'Category: ${appointment['main_category'] ?? 'Unknown'}', // Display main_category
+                              'Category: ${appointment['main_category'] ?? 'Unknown'}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 color: Colors.blueAccent,
