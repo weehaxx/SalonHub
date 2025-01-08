@@ -653,7 +653,7 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AcceptedAppointmentsPage(),
+                        builder: (context) => Acceptedappointment(),
                       ),
                     );
                   },

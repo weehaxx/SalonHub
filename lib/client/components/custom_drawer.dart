@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:salon_hub/client/Cancelled_bookings.dart';
 import 'package:salon_hub/client/bookingSchedule_client.dart';
 import 'package:salon_hub/client/payment_history.dart';
+import 'package:salon_hub/client/review_experience_page.dart';
 
 class CustomDrawer extends StatelessWidget {
   final String? userName;
@@ -80,7 +81,14 @@ class CustomDrawer extends StatelessWidget {
               'Review Experience',
               style: GoogleFonts.abel(),
             ),
-            onTap: onReviewExperience, // Call the onReviewExperience callback
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ReviewExperiencePage(),
+                ),
+              );
+            }, // Call the onReviewExperience callback
           ),
           ListTile(
             leading: const Icon(Icons.payments),
