@@ -3,14 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class Acceptedappointment extends StatefulWidget {
-  const Acceptedappointment({super.key});
+class AcceptedAppointmentsPage extends StatefulWidget {
+  const AcceptedAppointmentsPage({super.key});
 
   @override
-  State<Acceptedappointment> createState() => _AcceptedappointmentState();
+  State<AcceptedAppointmentsPage> createState() =>
+      _AcceptedAppointmentsPageState();
 }
 
-class _AcceptedappointmentState extends State<Acceptedappointment> {
+class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
   final User? _user = FirebaseAuth.instance.currentUser;
   String _selectedFilter = 'Paid'; // Default filter to 'Paid'
   late Stream<QuerySnapshot> _acceptedAppointmentsStream;
@@ -21,7 +22,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
     _acceptedAppointmentsStream = _getAcceptedAppointmentsStream();
   }
 
-  // Function to fetch accepted appointments stream based on selected filter
+  // Fetch accepted appointments stream based on selected filter
   Stream<QuerySnapshot> _getAcceptedAppointmentsStream() {
     return FirebaseFirestore.instance
         .collection('salon')
@@ -151,7 +152,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15.0),
+            padding: const EdgeInsets.all(10.0),
             child: DropdownButton<String>(
               value: _selectedFilter,
               items: const [
@@ -171,6 +172,9 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                       _getAcceptedAppointmentsStream();
                 });
               },
+              style: GoogleFonts.abel(),
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down),
             ),
           ),
           Expanded(
@@ -184,20 +188,19 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height -
-                              kToolbarHeight,
-                          child: const Center(
-                            child: Text(
-                              'No appointments found.',
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.grey),
-                            ),
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.event_available,
+                              color: Colors.grey, size: 50),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'No accepted appointments found.',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     );
                   }
 

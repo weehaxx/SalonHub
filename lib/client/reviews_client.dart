@@ -8,6 +8,8 @@ class ReviewsClient extends StatefulWidget {
   final String appointmentId;
   final List<String> services;
   final bool isAppointmentReview;
+  final String mainCategory; // Male or Female
+  final String stylist; // Stylist name
 
   const ReviewsClient({
     super.key,
@@ -15,6 +17,8 @@ class ReviewsClient extends StatefulWidget {
     required this.appointmentId,
     required this.services,
     required this.isAppointmentReview,
+    required this.mainCategory,
+    required this.stylist,
   });
 
   @override
@@ -26,6 +30,13 @@ class _ReviewsClientState extends State<ReviewsClient> {
   final TextEditingController _reviewController = TextEditingController();
 
   Future<void> _submitReview() async {
+    if (_reviewController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write a review.')),
+      );
+      return;
+    }
+
     try {
       // Get the current user ID
       final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -45,16 +56,18 @@ class _ReviewsClientState extends State<ReviewsClient> {
           .doc(widget.salonId)
           .collection('reviews');
 
-      // Add the review with the additional 'isAppointmentReview' field
+      // Add the review with additional fields
       await reviewsRef.add({
         'appointmentId': widget.appointmentId,
         'services': widget.services,
         'rating': _rating,
         'review': _reviewController.text,
         'timestamp': Timestamp.now(),
-        'isAppointmentReview': widget.isAppointmentReview, // New field
+        'isAppointmentReview': widget.isAppointmentReview,
+        'main_category': widget.mainCategory, // Save gender category
+        'stylist': widget.stylist, // Save stylist name
         'userId': userId,
-        'userName': userName, // Use the name fetched from Firestore
+        'userName': userName,
       });
 
       // Update the appointment document to mark it as reviewed
@@ -91,10 +104,26 @@ class _ReviewsClientState extends State<ReviewsClient> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Service: ${widget.services[0]}',
+              'Services: ${widget.services.join(', ')}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Category: ${widget.mainCategory}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Stylist: ${widget.stylist}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
               ),
             ),
             const SizedBox(height: 20),
@@ -120,6 +149,11 @@ class _ReviewsClientState extends State<ReviewsClient> {
               },
             ),
             const SizedBox(height: 20),
+            const Text(
+              'Write your review:',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: _reviewController,
               maxLines: 4,

@@ -20,6 +20,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
   final TextEditingController _reviewController = TextEditingController();
   String? _reviewId; // ID of the existing review
   String? _selectedServiceId; // Selected service ID
+  String? _selectedMainCategory; // Selected main category (Male/Female)
   double _currentRating = 0.0; // Current star rating
   List<Map<String, dynamic>> _services = []; // List of services
 
@@ -83,12 +84,14 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           _reviewId = existingReview.id;
           _reviewController.text = data['review'] ?? '';
           _currentRating = data['rating']?.toDouble() ?? 0.0;
+          _selectedMainCategory = data['main_category'] ?? null;
         });
       } else {
         setState(() {
           _reviewId = null;
           _reviewController.clear();
           _currentRating = 0.0;
+          _selectedMainCategory = null;
         });
       }
     } catch (e) {
@@ -109,7 +112,15 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         return;
       }
 
-      // Fetch the user's details from the Firestore `users` collection
+      if (_selectedMainCategory == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please select a category (Male/Female).')),
+        );
+        return;
+      }
+
+      // Fetch the user's details from Firestore
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -127,10 +138,12 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         'rating': _currentRating,
         'timestamp': Timestamp.now(),
         'userId': user.uid,
-        'userName': userName, // Include the user's name
+        'userName': userName,
         'serviceId': _selectedServiceId,
         'service': _services.firstWhere(
             (service) => service['id'] == _selectedServiceId)['name'],
+        'main_category':
+            _selectedMainCategory, // Save main category (Male/Female)
         'isAppointmentReview': false,
         'upvotes': 0,
       };
@@ -147,37 +160,6 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
-      }
-
-      // Add data to `user_interaction` subcollection
-      final userInteractionRef = FirebaseFirestore.instance
-          .collection('user_interaction')
-          .doc(user.uid)
-          .collection('reviews');
-
-      final userInteractionData = {
-        'salonId': widget.salonId,
-        'serviceId': _selectedServiceId,
-        'service': _services.firstWhere(
-            (service) => service['id'] == _selectedServiceId)['name'],
-        'rating': _currentRating,
-        'timestamp': Timestamp.now(),
-      };
-
-      // Add or update the user's review in the user_interaction subcollection
-      final existingReviewQuery = await userInteractionRef
-          .where('salonId', isEqualTo: widget.salonId)
-          .where('serviceId', isEqualTo: _selectedServiceId)
-          .limit(1)
-          .get();
-
-      if (existingReviewQuery.docs.isNotEmpty) {
-        final existingReview = existingReviewQuery.docs.first;
-        await userInteractionRef
-            .doc(existingReview.id)
-            .update(userInteractionData);
-      } else {
-        await userInteractionRef.add(userInteractionData);
       }
 
       Navigator.pop(context, true); // Close the review page
@@ -240,9 +222,45 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
                     _selectedServiceId = value;
                   });
                   if (value != null) {
-                    _fetchReviewForService(
-                        value); // Fetch review for selected service
+                    _fetchReviewForService(value);
                   }
+                },
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Select category:',
+                style:
+                    GoogleFonts.abel(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 15,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                ),
+                value: _selectedMainCategory,
+                hint: const Text('Select Male or Female'),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Male',
+                    child: Text('Male Services'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Female',
+                    child: Text('Female Services'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedMainCategory = value;
+                  });
                 },
               ),
               const SizedBox(height: 20),
@@ -293,7 +311,10 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
-                  onPressed: _selectedServiceId == null ? null : _submitReview,
+                  onPressed: _selectedServiceId == null ||
+                          _selectedMainCategory == null
+                      ? null
+                      : _submitReview,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff355E3B),
                     padding: const EdgeInsets.symmetric(

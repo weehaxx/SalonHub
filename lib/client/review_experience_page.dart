@@ -72,7 +72,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                           .collection('salon')
                           .doc(currentSalonId)
                           .collection('appointments')
-                          .where('userId', isEqualTo: _currentUser.uid)
+                          .where('userId', isEqualTo: _currentUser!.uid)
                           .where('status', isEqualTo: 'Done')
                           .where('isReviewed', isEqualTo: false)
                           .snapshots(),
@@ -96,6 +96,11 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                             String fetchedAppointmentId = appointment.id;
                             List<dynamic> fetchedServices =
                                 appointment.get('services');
+                            String genderCategory =
+                                appointment.get('main_category') ?? 'Unknown';
+                            String stylist =
+                                appointment.get('stylist') ?? 'Unknown';
+                            String time = appointment.get('time') ?? 'Unknown';
 
                             return Card(
                               margin: const EdgeInsets.symmetric(
@@ -107,7 +112,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                               child: ListTile(
                                 contentPadding: const EdgeInsets.all(16.0),
                                 title: Text(
-                                  'Service: ${fetchedServices[0]}',
+                                  'Service: ${fetchedServices.join(', ')}',
                                   style: GoogleFonts.abel(
                                     textStyle: const TextStyle(
                                       fontSize: 16,
@@ -120,7 +125,7 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                                   children: [
                                     const SizedBox(height: 5),
                                     Text(
-                                      'Stylist: ${appointment.get('stylist')}',
+                                      'Category: $genderCategory',
                                       style: GoogleFonts.abel(
                                         textStyle: const TextStyle(
                                           fontSize: 14,
@@ -130,7 +135,17 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                                     ),
                                     const SizedBox(height: 5),
                                     Text(
-                                      'Time: ${appointment.get('time')}',
+                                      'Stylist: $stylist',
+                                      style: GoogleFonts.abel(
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Time: $time',
                                       style: GoogleFonts.abel(
                                         textStyle: const TextStyle(
                                           fontSize: 14,
@@ -155,6 +170,9 @@ class _ReviewExperiencePageState extends State<ReviewExperiencePage> {
                                         services:
                                             List<String>.from(fetchedServices),
                                         isAppointmentReview: true,
+                                        mainCategory:
+                                            genderCategory, // Pass category
+                                        stylist: stylist, // Pass stylist name
                                       ),
                                     ),
                                   );
