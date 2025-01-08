@@ -29,6 +29,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   String _selectedReviewType = 'Appointments';
   int? _selectedStarFilter; // Star rating filter variable
   Set<String> _upvotedReviews = {}; // Track upvoted reviews by ID
+  String? _selectedMainCategory; // Filter for Male/Female
 
   @override
   void initState() {
@@ -83,6 +84,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
             'review': data['review'],
             'date': formattedDate,
             'service': service,
+            'mainCategory': data['main_category'], // Add gender category
             'isAppointmentReview': data['isAppointmentReview'],
             'upvotes': data['upvotes'] ?? 0,
           });
@@ -102,6 +104,57 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     } catch (e) {
       print('Error fetching reviews: $e');
     }
+  }
+
+  // Filter Reviews
+  List<Map<String, dynamic>> _filteredReviews() {
+    List<Map<String, dynamic>> filtered = _reviews;
+
+    // Filter by review type (Appointments/Walk-ins)
+    if (_selectedReviewType == 'Appointments') {
+      filtered = filtered
+          .where((review) => review['isAppointmentReview'] == true)
+          .toList();
+    } else if (_selectedReviewType == 'Walk-ins') {
+      filtered = filtered
+          .where((review) => review['isAppointmentReview'] == false)
+          .toList();
+    }
+
+    // Filter by gender category (Male/Female)
+    if (_selectedMainCategory != null) {
+      filtered = filtered
+          .where((review) => review['mainCategory'] == _selectedMainCategory)
+          .toList();
+    }
+
+    // Filter by star rating
+    if (_selectedStarFilter != null) {
+      switch (_selectedStarFilter) {
+        case 1:
+          filtered = filtered
+              .where((review) => review['rating'] >= 1 && review['rating'] < 2)
+              .toList();
+          break;
+        case 2:
+          filtered = filtered
+              .where((review) => review['rating'] >= 2 && review['rating'] < 3)
+              .toList();
+          break;
+        case 3:
+          filtered = filtered
+              .where((review) => review['rating'] >= 3 && review['rating'] < 4)
+              .toList();
+          break;
+        case 4:
+          filtered = filtered
+              .where((review) => review['rating'] >= 4 && review['rating'] <= 5)
+              .toList();
+          break;
+      }
+    }
+
+    return filtered;
   }
 
   // Fetch upvoted reviews by the current user
@@ -211,49 +264,6 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     }
   }
 
-  List<Map<String, dynamic>> _filteredReviews() {
-    List<Map<String, dynamic>> filtered = _reviews;
-
-    // Filter by review type (Appointments or Walk-ins)
-    if (_selectedReviewType == 'Appointments') {
-      filtered = filtered
-          .where((review) => review['isAppointmentReview'] == true)
-          .toList();
-    } else if (_selectedReviewType == 'Walk-ins') {
-      filtered = filtered
-          .where((review) => review['isAppointmentReview'] == false)
-          .toList();
-    }
-
-    // Filter by rating ranges based on the selected filter
-    if (_selectedStarFilter != null) {
-      switch (_selectedStarFilter) {
-        case 1: // 1–2 stars: Low-rated
-          filtered = filtered
-              .where((review) => review['rating'] >= 1 && review['rating'] < 2)
-              .toList();
-          break;
-        case 2: // 2–3 stars: Average ratings
-          filtered = filtered
-              .where((review) => review['rating'] >= 2 && review['rating'] < 3)
-              .toList();
-          break;
-        case 3: // 3–4 stars: Above average
-          filtered = filtered
-              .where((review) => review['rating'] >= 3 && review['rating'] < 4)
-              .toList();
-          break;
-        case 4: // 4–5 stars: Highly rated
-          filtered = filtered
-              .where((review) => review['rating'] >= 4 && review['rating'] <= 5)
-              .toList();
-          break;
-      }
-    }
-
-    return filtered;
-  }
-
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -269,8 +279,10 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
               ),
               const SizedBox(height: 10),
               const Text('Filter by Star Rating:'),
-              const SizedBox(height: 10),
               _buildStarFilterButtons(),
+              const SizedBox(height: 20),
+              const Text('Filter by Gender:'),
+              _buildGenderFilterButtons(), // Add gender filter buttons
             ],
           ),
         );
@@ -607,6 +619,65 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
     );
   }
 
+  Widget _buildGenderFilterButtons() {
+    return Wrap(
+      spacing: 8.0,
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedMainCategory = null; // Clear gender filter
+            });
+            Navigator.pop(context); // Close filter modal
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedMainCategory == null
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('All'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedMainCategory = 'Male';
+            });
+            Navigator.pop(context); // Close filter modal
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedMainCategory == 'Male'
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('Male'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _selectedMainCategory = 'Female';
+            });
+            Navigator.pop(context); // Close filter modal
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _selectedMainCategory == 'Female'
+                ? const Color(0xff355E3B)
+                : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('Female'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildAverageRatingSection(double averageRating, int totalReviews) {
     return Container(
       decoration: BoxDecoration(
@@ -661,6 +732,8 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
   Widget _buildReviewItem(Map<String, dynamic> review) {
     bool hasUpvoted = _upvotedReviews.contains(review['id']);
     String comment = review['review'];
+    String mainCategory =
+        review['mainCategory'] ?? 'Unknown'; // Add gender category
 
     // Determine font size based on comment length
     double fontSize = _getFontSizeForComment(comment.length);
@@ -708,6 +781,17 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
                 ),
               ),
             const SizedBox(height: 5),
+            Text(
+              'Category: $mainCategory', // Display mainCategory
+              style: GoogleFonts.abel(
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
             RatingBar.builder(
               initialRating: review['rating'].toDouble(),
               minRating: 1,
@@ -722,7 +806,7 @@ class _ClientFeedbackPageState extends State<ClientFeedbackPage> {
               ),
               onRatingUpdate: (_) {},
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
