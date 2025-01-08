@@ -231,7 +231,6 @@ class _LoginState extends State<Login> {
       _loginError = '';
     });
 
-    // Validate email and password
     if (!_validateEmail() || !_validatePassword()) {
       setState(() {
         _isLoading = false;
@@ -259,41 +258,42 @@ class _LoginState extends State<Login> {
       if (salonDoc.exists) {
         final salonData = salonDoc.data() as Map<String, dynamic>?;
 
-        // Check if the account is banned
+        // Handle banned account
         if (salonData?['isBanned'] == true) {
           DateTime? banEndDate;
-
-          // Parse banEndDate if it exists
           if (salonData?['banEndDate'] != null) {
-            banEndDate = DateTime.parse(salonData?['banEndDate']);
+            try {
+              banEndDate = DateTime.parse(salonData?['banEndDate']);
+            } catch (e) {
+              banEndDate = null; // Handle invalid date format
+            }
           }
 
-          // If ban has expired, unban the account
           if (banEndDate != null && DateTime.now().isAfter(banEndDate)) {
+            // Unban account if the ban has expired
             await FirebaseFirestore.instance
                 .collection('salon')
                 .doc(uid)
                 .update({
               'isBanned': false,
               'banEndDate': null,
-              'missedAppointmentCount': 0, // Reset missed count after unbanning
+              'missedAppointmentCount': 0, // Reset missed count
             });
           } else {
-            // Redirect to the BannedPage if the account is still banned
+            // Redirect to the BannedPage for banned accounts
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (context) => const BannedPage(),
               ),
             );
-            return;
+            return; // Stop further execution
           }
         }
 
-        // Check if the owner profile is complete
+        // Navigate based on profile completion status
         if (salonData?['profileComplete'] == null ||
             salonData?['profileComplete'] == false) {
-          // Redirect to FormOwner if profile is not complete
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -301,7 +301,6 @@ class _LoginState extends State<Login> {
             ),
           );
         } else {
-          // Redirect to DashboardOwner if profile is complete
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -312,7 +311,7 @@ class _LoginState extends State<Login> {
         return;
       }
 
-      // Check user's role if not a salon owner
+      // If not a salon owner, check the user role
       DocumentSnapshot userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
@@ -324,34 +323,69 @@ class _LoginState extends State<Login> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const UserPreferencesPage(),
+              builder: (context) => const SalonhomepageClient(),
             ),
           );
         } else {
-          setState(() {
-            _loginError = 'Role not recognized. Please contact support.';
-          });
+          _showErrorDialog(
+            title: 'Role Not Recognized',
+            message: 'Your role is not recognized. Please contact support.',
+          );
         }
       } else {
-        // If user document is not found, sign out
+        // If no user document, sign out and show error
         await FirebaseAuth.instance.signOut();
-        setState(() {
-          _loginError = 'User not found. Please try again.';
-        });
+        _showErrorDialog(
+          title: 'User Not Found',
+          message:
+              'The email provided does not match any account. Please try again.',
+        );
       }
+    } on FirebaseAuthException catch (e) {
+      _showErrorDialog(
+        title: 'Login Failed',
+        message: _handleAuthError(e),
+      );
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loginError = 'An unexpected error occurred. Please try again later.';
-        });
-      }
+      _showErrorDialog(
+        title: 'Unexpected Error',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
+  }
+
+  String _handleAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return 'No account found with the provided email.';
+      case 'wrong-password':
+        return 'The password entered is incorrect.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      default:
+        return 'Authentication error: ${e.message}';
+    }
+  }
+
+// Function to display error dialog
+  void _showErrorDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _navigateBasedOnRole(String uid) async {
