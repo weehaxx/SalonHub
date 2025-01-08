@@ -616,14 +616,12 @@ class _BookingClientState extends State<BookingClient> {
             .add({
           'userId': user.uid,
           'userName': _userName ?? 'Unknown User', // Name of the logged-in user
-          'services': _selectedServices.map((s) {
-            return {
-              'name': s['name'],
-              'main_category': s['main_category'],
-              'price': s['price'],
-            };
-          }).toList(),
-
+          'services': _selectedServices
+              .map((s) => s['name'])
+              .toList(), // Only service names
+          'main_category': _selectedServices.isNotEmpty
+              ? _selectedServices.first['main_category']
+              : 'N/A', // Move main_category outside services
           'stylist': _selectedStylist ?? 'No stylist selected',
           'date': _selectedDay != null
               ? _selectedDay.toString().split(' ')[0]

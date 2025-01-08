@@ -85,6 +85,23 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
 
       double averageRating = reviewCount > 0 ? totalRating / reviewCount : 0.0;
 
+      // Fetch stylists
+      QuerySnapshot stylistSnapshot = await FirebaseFirestore.instance
+          .collection('salon')
+          .doc(salonId)
+          .collection('stylists')
+          .get();
+
+      List<Map<String, dynamic>> stylists = stylistSnapshot.docs.map((doc) {
+        final stylistData = doc.data() as Map<String, dynamic>;
+        return {
+          'name': stylistData['name'],
+          'specialization': stylistData['specialization'],
+          'status': stylistData['status'],
+          'categories': stylistData['categories'],
+        };
+      }).toList();
+
       nearbySalons.add({
         'salon_id': salonId,
         'salon_name': salonData['salon_name'] ?? 'Unnamed Salon',
@@ -97,6 +114,7 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
         'close_time': salonData['close_time'] ?? 'Unknown',
         'status': salonData['status'] ?? 'Unknown',
         'distance': distance,
+        'stylists': stylists, // Include stylists
       });
     }
 
@@ -118,6 +136,7 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
     });
   }
 }
+
 
 
 

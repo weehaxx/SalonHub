@@ -50,13 +50,8 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
             'salonId': salonId,
             'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
             'stylistName': data['stylist'] ?? 'Unknown Stylist',
-            'service': (data['services'] is List && data['services'].isNotEmpty)
-                ? (data['services'][0] is Map<String, dynamic>
-                    ? data['services'][0]['name'] ?? 'No service provided'
-                    : 'Invalid service data')
-                : (data['services'] is String
-                    ? data['services']
-                    : 'No service provided'),
+            'services': (data['services'] as List<dynamic>)
+                .join(', '), // Join service names
             'price': data['totalPrice']?.toString() ?? 'N/A',
             'date': data['date'] ?? 'No date provided',
             'time': data['time'] ?? 'No time provided',
@@ -192,7 +187,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                             const SizedBox(height: 8),
                             _buildDetailRow(
                                 'Stylist', appointment['stylistName']),
-                            _buildDetailRow('Service', appointment['service']),
+                            _buildDetailRow('Service', appointment['services']),
                             _buildDetailRow(
                                 'Price', 'Php ${appointment['price']}'),
                             const SizedBox(height: 8),
