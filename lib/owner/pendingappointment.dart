@@ -26,6 +26,8 @@ class _PendingappointmentState extends State<Pendingappointment> {
     _checkForMissedAppointments();
   }
 
+  bool _isProcessing = false;
+
   // Fetch pending appointments stream
   Stream<QuerySnapshot> _getPendingAppointmentsStream() {
     return FirebaseFirestore.instance
@@ -445,6 +447,13 @@ class _PendingappointmentState extends State<Pendingappointment> {
                               ),
                             ),
                             const SizedBox(height: 5),
+                            Text(
+                              'Total Price: Php ${appointment['totalPrice']?.toString() ?? 'No Price'}',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
 
                             // User Name
                             Text(

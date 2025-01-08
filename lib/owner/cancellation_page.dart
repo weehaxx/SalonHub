@@ -130,6 +130,17 @@ class _CancellationPageState extends State<CancellationPage> {
                                 'Cancelled Time: ${data['time'] ?? 'No time provided'}',
                                 style: GoogleFonts.abel(),
                               ),
+                              const SizedBox(height: 8),
+                              // Display the reason for cancellation
+                              Text(
+                                'Reason: ${data['cancelReason'] ?? 'No reason provided'}',
+                                style: GoogleFonts.abel(
+                                  fontSize: 14,
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
                             ],
                           ),
                           trailing: IconButton(

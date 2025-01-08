@@ -67,7 +67,6 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
       body: Column(
         children: [
           // Filter Dropdown
-          // Wrapping the DropdownButtonFormField in a Flexible or Expanded widget
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: Row(
