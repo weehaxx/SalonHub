@@ -74,6 +74,9 @@ class _PendingappointmentState extends State<Pendingappointment> {
     final salonDocRef =
         FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
 
+    int missedCount = 0;
+
+    // Fetch pending appointments
     final pendingAppointments = await FirebaseFirestore.instance
         .collection('salon')
         .doc(_user?.uid)
@@ -90,7 +93,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
         final scheduledTime =
             DateFormat('yyyy-MM-dd h:mm a').parse('$date $time');
 
-        // Check if the appointment is overdue
+        // Check if the appointment is overdue (within 3 hours of the scheduled time)
         if (now.isAfter(scheduledTime.subtract(const Duration(hours: 3)))) {
           // Auto-decline the appointment
           await FirebaseFirestore.instance
@@ -103,59 +106,27 @@ class _PendingappointmentState extends State<Pendingappointment> {
             'declineReason': 'Failure to accept or decline appointment',
           });
 
-          // Increment missed appointment count
-          final salonDoc = await salonDocRef.get();
-          int missedCount = salonDoc.data()?['missedAppointmentCount'] ?? 0;
-
-          missedCount += 1;
-
-          if (missedCount >= 3) {
-            // Ban the account
-            await salonDocRef.update({
-              'isBanned': true,
-              'banEndDate':
-                  DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-              'missedAppointmentCount': 0, // Reset missed count after banning
-            });
-
-            // Log out the user
-            await FirebaseAuth.instance.signOut();
-
-            // Redirect to banned page
-            if (mounted) {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BannedPage(),
-                ),
-              );
-            }
-
-            return; // Stop further execution
-          } else {
-            // Update the missed appointment count
-            await salonDocRef.update({'missedAppointmentCount': missedCount});
-          }
+          missedCount += 1; // Increment missed count
         }
       } catch (e) {
         print('Error parsing date and time for appointment ${doc.id}: $e');
       }
     }
 
-    // Fetch count of declined appointments
-    final declinedAppointments = await FirebaseFirestore.instance
-        .collection('salon')
-        .doc(_user?.uid)
-        .collection('appointments')
-        .where('status', isEqualTo: 'Canceled')
-        .get();
+    // Fetch the current missed count from the salon document
+    final salonDoc = await salonDocRef.get();
+    int currentMissedCount = salonDoc.data()?['missedAppointmentCount'] ?? 0;
 
-    if (declinedAppointments.docs.length >= 3) {
-      // Ban the account
+    // Update the missed count
+    currentMissedCount += missedCount;
+
+    if (currentMissedCount >= 3) {
+      // Ban the account if 3 missed appointments occurred
       await salonDocRef.update({
         'isBanned': true,
         'banEndDate':
             DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+        'missedAppointmentCount': 0, // Reset missed count after banning
       });
 
       // Log out the user
@@ -170,6 +141,9 @@ class _PendingappointmentState extends State<Pendingappointment> {
           ),
         );
       }
+    } else {
+      // Save the updated missed count if not banned
+      await salonDocRef.update({'missedAppointmentCount': currentMissedCount});
     }
   }
 

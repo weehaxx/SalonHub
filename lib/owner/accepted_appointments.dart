@@ -23,13 +23,19 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
 
   // Function to fetch accepted appointments stream based on selected filter
   Stream<QuerySnapshot> _getAcceptedAppointmentsStream() {
+    final bool filterIsPaid =
+        _selectedFilter == 'Paid'; // Map filter to boolean
+    print("Fetching for status: 'Accepted' and isPaid: $filterIsPaid");
     return FirebaseFirestore.instance
         .collection('salon')
         .doc(_user?.uid)
         .collection('appointments')
-        .where('status', isEqualTo: 'Accepted')
-        .where('isPaid', isEqualTo: _selectedFilter == 'Paid')
-        .snapshots();
+        .where('status', isEqualTo: 'Accepted') // Match 'Accepted'
+        .where('isPaid', isEqualTo: filterIsPaid) // Match boolean filter
+        .snapshots()
+        .handleError((error) {
+      print("Error fetching appointments: $error");
+    });
   }
 
   // Refresh function
@@ -194,10 +200,12 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                   _selectedFilter = value!;
                   _acceptedAppointmentsStream =
                       _getAcceptedAppointmentsStream();
+                  print(
+                      "Selected filter: $_selectedFilter"); // Log selected filter
                 });
               },
               style: GoogleFonts.abel(fontSize: 16, color: Colors.black87),
-              dropdownColor: Colors.black,
+              dropdownColor: Colors.white,
             ),
           ),
           Expanded(
