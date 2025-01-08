@@ -415,6 +415,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Services
                             Text(
                               'Services: ${appointment['services']?.join(', ') ?? 'No service'}',
                               style: GoogleFonts.poppins(
@@ -423,6 +424,19 @@ class _PendingappointmentState extends State<Pendingappointment> {
                               ),
                             ),
                             const SizedBox(height: 5),
+
+                            // Main Category (Male or Female)
+                            Text(
+                              'Category: ${appointment['main_category'] ?? 'No category selected'}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+
+                            // Date, Time, and Stylist
                             Text(
                               '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
                               style: GoogleFonts.poppins(
@@ -431,6 +445,8 @@ class _PendingappointmentState extends State<Pendingappointment> {
                               ),
                             ),
                             const SizedBox(height: 5),
+
+                            // User Name
                             Text(
                               'Set by: $userName',
                               style: GoogleFonts.poppins(
@@ -440,6 +456,8 @@ class _PendingappointmentState extends State<Pendingappointment> {
                               ),
                             ),
                             const SizedBox(height: 15),
+
+                            // Accept and Decline Buttons
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [

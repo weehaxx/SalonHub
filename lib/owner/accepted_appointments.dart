@@ -263,7 +263,6 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                           }
 
                           final userName = userSnapshot.data ?? 'Unknown User';
-
                           List<dynamic> services =
                               appointment['services'] ?? [];
                           String servicesText = services.isNotEmpty
@@ -272,6 +271,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
 
                           bool isPaid = appointment['isPaid'] ?? false;
                           String paymentStatus = isPaid ? 'Paid' : 'Not Paid';
+                          String mainCategory =
+                              appointment['main_category'] ?? 'Unknown';
 
                           return Card(
                             shape: RoundedRectangleBorder(
@@ -284,6 +285,7 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Services
                                   Text(
                                     servicesText,
                                     style: GoogleFonts.abel(
@@ -292,6 +294,18 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                     ),
                                   ),
                                   const SizedBox(height: 5),
+
+                                  // Main Category
+                                  Text(
+                                    'Category: $mainCategory',
+                                    style: GoogleFonts.abel(
+                                      fontSize: 14,
+                                      color: Colors.blueAccent,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+
+                                  // Date, Time, and Stylist
                                   Text(
                                     '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
                                     style: GoogleFonts.abel(
@@ -300,6 +314,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                     ),
                                   ),
                                   const SizedBox(height: 5),
+
+                                  // User Name
                                   Text(
                                     'Set by: $userName',
                                     style: GoogleFonts.abel(
@@ -309,6 +325,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                     ),
                                   ),
                                   const SizedBox(height: 5),
+
+                                  // Total Price
                                   Text(
                                     'Total Price: Php ${appointment['totalPrice']}',
                                     style: GoogleFonts.abel(
@@ -318,6 +336,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                     ),
                                   ),
                                   const SizedBox(height: 5),
+
+                                  // Payment Status
                                   Text(
                                     'Payment Status: $paymentStatus',
                                     style: GoogleFonts.abel(
@@ -327,6 +347,8 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
                                     ),
                                   ),
                                   const SizedBox(height: 15),
+
+                                  // Receipt Button
                                   if (isPaid)
                                     ElevatedButton(
                                       onPressed: () {

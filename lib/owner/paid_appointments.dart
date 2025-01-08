@@ -137,6 +137,9 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
                 final appointment =
                     appointmentDoc.data() as Map<String, dynamic>;
 
+                String mainCategory = appointment['main_category'] ??
+                    'Unknown'; // Added this line
+
                 return Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -164,6 +167,17 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
                           ),
                         ),
                         const SizedBox(height: 5),
+
+                        // Displaying the main category
+                        Text(
+                          'Category: $mainCategory',
+                          style: GoogleFonts.abel(
+                            fontSize: 14,
+                            color: Colors.blueAccent,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+
                         Text(
                           'Total Price: Php ${appointment['totalPrice']}',
                           style: GoogleFonts.abel(

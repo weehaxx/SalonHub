@@ -102,6 +102,14 @@ class _CancellationPageState extends State<CancellationPage> {
                             children: [
                               const SizedBox(height: 8),
                               Text(
+                                'Category: ${data['main_category'] ?? 'Unknown'}', // Display main_category
+                                style: GoogleFonts.abel(
+                                  fontSize: 14,
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
                                 'Service: ${data['services'][0] ?? 'No service provided'}',
                                 style: GoogleFonts.abel(),
                               ),

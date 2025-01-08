@@ -166,6 +166,15 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
                             ),
                             const SizedBox(height: 5),
                             Text(
+                              'Category: ${appointment['main_category'] ?? 'Unknown'}', // Display main_category
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
                               'Service: ${appointment['services']?.join(', ') ?? 'No service'}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,

@@ -118,10 +118,12 @@ class _ReschedulePageState extends State<ReschedulePage> {
                     children: snapshot.data!.docs.map((doc) {
                       var data = doc.data() as Map<String, dynamic>;
 
-                      // Extracting the services and price information
+                      // Extracting the services, price, and main_category information
                       List<dynamic> services = data['services'] ?? [];
                       String formattedServices = services.join(', ');
                       String price = data['totalPrice'].toString();
+                      String mainCategory = data['main_category'] ??
+                          'Unknown'; // Extract main_category
 
                       return ListTile(
                         title: Text(
@@ -132,11 +134,16 @@ class _ReschedulePageState extends State<ReschedulePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
+                              'Category: $mainCategory', // Display main_category
+                              style: GoogleFonts.abel(
+                                  fontSize: 14, color: Colors.blueAccent),
+                            ),
+                            Text(
                               'Services: $formattedServices',
                               style: GoogleFonts.abel(),
                             ),
                             Text(
-                              'Price: \$$price',
+                              'Price: Php $price',
                               style: GoogleFonts.abel(),
                             ),
                             const SizedBox(height: 8),

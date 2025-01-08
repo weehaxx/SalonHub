@@ -19,6 +19,7 @@ class _ReviewsPageState extends State<ReviewsPage> {
   List<QueryDocumentSnapshot> _reviews = [];
   String _filter = "All"; // Default filter for appointment/walk-ins
   int? _starFilter; // Star rating filter (rounded)
+  String _genderFilter = "Both"; // Default gender filter
 
   @override
   void initState() {
@@ -81,12 +82,21 @@ class _ReviewsPageState extends State<ReviewsPage> {
           .toList();
     }
 
-    // Filter by star rating (round down the decimal values)
+    // Filter by star rating
     if (_starFilter != null) {
       filteredReviews = filteredReviews
           .where((review) =>
               (review.data() as Map<String, dynamic>)['rating'].floor() ==
               _starFilter)
+          .toList();
+    }
+
+    // Filter by gender
+    if (_genderFilter != "Both") {
+      filteredReviews = filteredReviews
+          .where((review) =>
+              (review.data() as Map<String, dynamic>)['main_category'] ==
+              _genderFilter)
           .toList();
     }
 
@@ -108,7 +118,6 @@ class _ReviewsPageState extends State<ReviewsPage> {
                   padding:
                       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Filter by Appointments/Walk-ins
                       Expanded(
@@ -160,6 +169,25 @@ class _ReviewsPageState extends State<ReviewsPage> {
                               } else {
                                 _starFilter = int.tryParse(value!);
                               }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Filter by Gender
+                      Expanded(
+                        child: _buildFilterDropdown(
+                          value: _genderFilter,
+                          icon: const Icon(Icons.person),
+                          items: ['Both', 'Male', 'Female'].map((gender) {
+                            return DropdownMenuItem(
+                              value: gender,
+                              child: Text(gender, style: GoogleFonts.abel()),
+                            );
+                          }).toList(),
+                          onChanged: (String? value) {
+                            setState(() {
+                              _genderFilter = value ?? "Both";
                             });
                           },
                         ),
@@ -236,6 +264,11 @@ class _ReviewsPageState extends State<ReviewsPage> {
                                     const SizedBox(height: 5),
                                     Text(
                                       'Service: ${data['service']}',
+                                      style: GoogleFonts.abel(),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Category: ${data['main_category'] ?? 'Unknown'}', // Added main_category
                                       style: GoogleFonts.abel(),
                                     ),
                                     const SizedBox(height: 5),
