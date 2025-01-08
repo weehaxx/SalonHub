@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:salon_hub/client/cancelReason.dart';
 import 'package:salon_hub/client/downpayment_client.dart';
 import 'package:salon_hub/client/flagging_system.dart';
 import 'package:salon_hub/client/reschedule.dart';
@@ -49,7 +50,13 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
             'salonId': salonId,
             'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
             'stylistName': data['stylist'] ?? 'Unknown Stylist',
-            'service': data['services'][0] ?? 'No service provided',
+            'service': (data['services'] is List && data['services'].isNotEmpty)
+                ? (data['services'][0] is Map<String, dynamic>
+                    ? data['services'][0]['name'] ?? 'No service provided'
+                    : 'Invalid service data')
+                : (data['services'] is String
+                    ? data['services']
+                    : 'No service provided'),
             'price': data['totalPrice']?.toString() ?? 'N/A',
             'date': data['date'] ?? 'No date provided',
             'time': data['time'] ?? 'No time provided',
@@ -331,18 +338,17 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
     return ElevatedButton(
       onPressed: isCanceled || isDone
           ? null
-          : () async {
-              final confirmed = await _showCancellationConfirmationDialog(
-                isPaid: appointment['isPaid'],
-                isAccepted: appointment['isAccepted'],
+          : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CancelReason(
+                    salonId: appointment['salonId'],
+                    appointmentId: appointment['appointmentId'],
+                    isPaid: appointment['isPaid'],
+                  ),
+                ),
               );
-              if (confirmed == true) {
-                _cancelAppointment(
-                    appointment['salonId'], appointment['appointmentId']);
-                if (appointment['isAccepted'] && !appointment['isPaid']) {
-                  _flaggingSystem.flagAndBlockUser(context, _user!.uid);
-                }
-              }
             },
       style: ElevatedButton.styleFrom(
         backgroundColor: isCanceled || isDone ? Colors.grey : Colors.red,
@@ -361,7 +367,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
   }
 
   // Helper method to create rows for details in the dialog
-  Widget _buildDetailRow(String title, String? value) {
+  Widget _buildDetailRow(String title, dynamic value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -376,7 +382,7 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
           ),
           Flexible(
             child: Text(
-              value ?? 'N/A',
+              value?.toString() ?? 'N/A',
               style: GoogleFonts.abel(color: Colors.black),
               overflow: TextOverflow.ellipsis,
             ),

@@ -287,7 +287,7 @@ class _BookingClientState extends State<BookingClient> {
                                             ),
                                           ),
                                           Text(
-                                            "Category: ${service['main_category'] ?? 'N/A'}", // Display the main category
+                                            "Main Category: ${service['main_category'] ?? 'N/A'}",
                                             style: GoogleFonts.abel(
                                               textStyle: const TextStyle(
                                                 fontSize: 14,
@@ -616,7 +616,14 @@ class _BookingClientState extends State<BookingClient> {
             .add({
           'userId': user.uid,
           'userName': _userName ?? 'Unknown User', // Name of the logged-in user
-          'services': _selectedServices.map((s) => s['name']).toList(),
+          'services': _selectedServices.map((s) {
+            return {
+              'name': s['name'],
+              'main_category': s['main_category'],
+              'price': s['price'],
+            };
+          }).toList(),
+
           'stylist': _selectedStylist ?? 'No stylist selected',
           'date': _selectedDay != null
               ? _selectedDay.toString().split(' ')[0]
