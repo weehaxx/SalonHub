@@ -96,6 +96,8 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
             'name': serviceData['name'],
             'price': serviceData['price'],
             'category': serviceData['category'],
+            'main_category':
+                serviceData['main_category'], // Include main_category
             'rating': averageRating,
             'reviewCount': reviewCount,
           });
@@ -489,6 +491,8 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                           service['price'],
                           service['rating'] ??
                               0.0, // Default rating of 0.0 if not present
+                          service['main_category'] ??
+                              'N/A', // Default to 'N/A' if not present
                         );
                       }),
 
@@ -588,7 +592,8 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
     );
   }
 
-  Widget _buildServiceItem(String title, dynamic price, double rating) {
+  Widget _buildServiceItem(
+      String title, dynamic price, double rating, String mainCategory) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
@@ -620,6 +625,18 @@ class _SalondetailsClientState extends State<SalondetailsClient> {
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    // Main Category
+                    Text(
+                      mainCategory,
+                      style: GoogleFonts.abel(
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ),

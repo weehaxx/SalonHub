@@ -275,12 +275,27 @@ class _BookingClientState extends State<BookingClient> {
                                   controller: _scrollController,
                                   children: filteredServices.map((service) {
                                     return CheckboxListTile(
-                                      title: Text(
-                                        "${service['name']} - Php ${service['price']}",
-                                        style: GoogleFonts.abel(
-                                          textStyle:
-                                              const TextStyle(fontSize: 18),
-                                        ),
+                                      title: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "${service['name']} - Php ${service['price']}",
+                                            style: GoogleFonts.abel(
+                                              textStyle:
+                                                  const TextStyle(fontSize: 18),
+                                            ),
+                                          ),
+                                          Text(
+                                            "Category: ${service['main_category'] ?? 'N/A'}", // Display the main category
+                                            style: GoogleFonts.abel(
+                                              textStyle: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       value:
                                           _selectedServices.contains(service),
