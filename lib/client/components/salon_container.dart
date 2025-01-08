@@ -170,7 +170,7 @@ class _SalonContainerState extends State<SalonContainer> {
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

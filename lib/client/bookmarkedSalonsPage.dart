@@ -57,12 +57,30 @@ class _BookmarkedSalonsPageState extends State<BookmarkedSalonsPage> {
 
         if (salonDoc.exists) {
           final salonData = salonDoc.data()!;
+
+          // Fetch reviews to calculate average rating
+          final reviewsSnapshot = await FirebaseFirestore.instance
+              .collection('salon')
+              .doc(salonId)
+              .collection('reviews')
+              .get();
+
+          double totalRating = 0.0;
+          int reviewCount = reviewsSnapshot.docs.length;
+
+          for (var reviewDoc in reviewsSnapshot.docs) {
+            totalRating += (reviewDoc['rating'] ?? 0).toDouble();
+          }
+
+          double averageRating =
+              reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
           bookmarkedSalons.add({
             'salon_id': salonId,
             'salon_name': salonData['salon_name'] ?? 'Unknown Salon',
             'address': salonData['address'] ?? 'No Address Available',
             'image_url': salonData['image_url'] ?? '',
-            'rating': salonData['rating'] ?? 0.0,
+            'rating': averageRating, // Use the calculated average rating
             'open_time': salonData['open_time'] ?? 'Unknown',
             'close_time': salonData['close_time'] ?? 'Unknown',
           });

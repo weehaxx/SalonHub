@@ -201,26 +201,32 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _matchedPreferenceSalons.length,
-                    itemBuilder: (context, index) {
-                      final salon = _matchedPreferenceSalons[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5.0),
-                        child: SalonContainer(
-                          key: UniqueKey(),
-                          salonId: salon['salon_id'],
-                          salon: salon,
-                          rating: salon['rating'],
-                          userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                        ),
-                      );
-                    },
+                  SizedBox(
+                    height: 310, // Fixed height for horizontal scrolling
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _matchedPreferenceSalons.length,
+                      itemBuilder: (context, index) {
+                        final salon = _matchedPreferenceSalons[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: SizedBox(
+                            width:
+                                300, // Provide a fixed width for each container
+                            child: SalonContainer(
+                              key: UniqueKey(),
+                              salonId: salon['salon_id'],
+                              salon: salon,
+                              rating: salon['rating'],
+                              userId:
+                                  FirebaseAuth.instance.currentUser?.uid ?? '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
-
                 // Section for user preference + interaction matches
                 if (_matchedInteractionSalons.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -235,23 +241,30 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _matchedInteractionSalons.length,
-                    itemBuilder: (context, index) {
-                      final salon = _matchedInteractionSalons[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5.0),
-                        child: SalonContainer(
-                          key: UniqueKey(),
-                          salonId: salon['salon_id'],
-                          salon: salon,
-                          rating: salon['rating'],
-                          userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                        ),
-                      );
-                    },
+                  SizedBox(
+                    height: 310, // Fixed height for horizontal scrolling
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _matchedPreferenceSalons.length,
+                      itemBuilder: (context, index) {
+                        final salon = _matchedPreferenceSalons[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: SizedBox(
+                            width:
+                                300, // Provide a fixed width for each container
+                            child: SalonContainer(
+                              key: UniqueKey(),
+                              salonId: salon['salon_id'],
+                              salon: salon,
+                              rating: salon['rating'],
+                              userId:
+                                  FirebaseAuth.instance.currentUser?.uid ?? '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
 
