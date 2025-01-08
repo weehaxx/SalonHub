@@ -22,14 +22,16 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
   String? _selectedServiceId; // Selected service ID
   String? _selectedMainCategory; // Selected main category (Male/Female)
   double _currentRating = 0.0; // Current star rating
-  List<Map<String, dynamic>> _services = []; // List of services
+  List<Map<String, dynamic>> _services =
+      []; // List of services for the selected category
 
   @override
   void initState() {
     super.initState();
-    _fetchServices();
+    _fetchServices(); // Fetch all services initially
   }
 
+  // Fetch services from Firestore
   Future<void> _fetchServices() async {
     try {
       final servicesRef = FirebaseFirestore.instance
@@ -46,6 +48,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
             return {
               'id': doc.id,
               'name': data['name'] ?? 'Unnamed Service',
+              'main_category': data['main_category'] ?? 'Unknown',
             };
           }).toList();
         });
@@ -55,6 +58,14 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         SnackBar(content: Text('Error fetching services: $e')),
       );
     }
+  }
+
+  // Filter services based on selected category (Male/Female)
+  List<Map<String, dynamic>> _filterServicesByCategory(String? category) {
+    if (category == null) return [];
+    return _services
+        .where((service) => service['main_category'] == category)
+        .toList();
   }
 
   Future<void> _fetchReviewForService(String serviceId) async {
@@ -84,14 +95,13 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           _reviewId = existingReview.id;
           _reviewController.text = data['review'] ?? '';
           _currentRating = data['rating']?.toDouble() ?? 0.0;
-          _selectedMainCategory = data['main_category'] ?? null;
         });
       } else {
+        // Clear only the review-related fields, not the category or service
         setState(() {
           _reviewId = null;
           _reviewController.clear();
           _currentRating = 0.0;
-          _selectedMainCategory = null;
         });
       }
     } catch (e) {
@@ -172,6 +182,8 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredServices = _filterServicesByCategory(_selectedMainCategory);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -188,45 +200,6 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Select a service:',
-                style:
-                    GoogleFonts.abel(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 15,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-                value: _selectedServiceId,
-                hint: const Text('Choose a service'),
-                items: _services.map((service) {
-                  return DropdownMenuItem<String>(
-                    value: service['id'],
-                    child: Text(
-                      service['name'],
-                      style: GoogleFonts.abel(fontSize: 14),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedServiceId = value;
-                  });
-                  if (value != null) {
-                    _fetchReviewForService(value);
-                  }
-                },
-              ),
-              const SizedBox(height: 20),
               Text(
                 'Select category:',
                 style:
@@ -260,7 +233,47 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
                 onChanged: (value) {
                   setState(() {
                     _selectedMainCategory = value;
+                    _selectedServiceId = null; // Reset selected service
                   });
+                },
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Select a service:',
+                style:
+                    GoogleFonts.abel(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 15,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                ),
+                value: _selectedServiceId,
+                hint: const Text('Choose a service'),
+                items: filteredServices.map((service) {
+                  return DropdownMenuItem<String>(
+                    value: service['id'],
+                    child: Text(
+                      service['name'],
+                      style: GoogleFonts.abel(fontSize: 14),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedServiceId = value;
+                  });
+                  if (value != null) {
+                    _fetchReviewForService(value);
+                  }
                 },
               ),
               const SizedBox(height: 20),
