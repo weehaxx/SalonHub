@@ -99,7 +99,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
               .collection('appointments')
               .doc(doc.id)
               .update({
-            'status': 'Declined',
+            'status': 'Canceled',
             'declineReason': 'Failure to accept or decline appointment',
           });
 
@@ -147,7 +147,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
         .collection('salon')
         .doc(_user?.uid)
         .collection('appointments')
-        .where('status', isEqualTo: 'Declined')
+        .where('status', isEqualTo: 'Canceled')
         .get();
 
     if (declinedAppointments.docs.length >= 3) {
@@ -226,7 +226,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
           .collection('appointments')
           .doc(appointmentId)
           .update({
-        'status': 'Declined',
+        'status': 'Canceled',
         'declineReason': reason,
         'updatedAt': FieldValue.serverTimestamp(), // Track updates
       });

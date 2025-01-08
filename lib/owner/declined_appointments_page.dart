@@ -28,7 +28,7 @@ class _DeclinedAppointmentsPageState extends State<DeclinedAppointmentsPage> {
         .collection('salon')
         .doc(_user?.uid)
         .collection('appointments')
-        .where('status', isEqualTo: 'Declined');
+        .where('status', isEqualTo: 'Canceled');
 
     if (_selectedReason != null && _selectedReason!.isNotEmpty) {
       query = query.where('declineReason', isEqualTo: _selectedReason);

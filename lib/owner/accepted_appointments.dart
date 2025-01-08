@@ -3,15 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class AcceptedAppointmentsPage extends StatefulWidget {
-  const AcceptedAppointmentsPage({super.key});
+class Acceptedappointment extends StatefulWidget {
+  const Acceptedappointment({super.key});
 
   @override
-  State<AcceptedAppointmentsPage> createState() =>
-      _AcceptedAppointmentsPageState();
+  State<Acceptedappointment> createState() => _AcceptedappointmentState();
 }
 
-class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
+class _AcceptedappointmentState extends State<Acceptedappointment> {
   final User? _user = FirebaseAuth.instance.currentUser;
   String _selectedFilter = 'Paid'; // Default filter to 'Paid'
   late Stream<QuerySnapshot> _acceptedAppointmentsStream;
@@ -22,7 +21,7 @@ class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
     _acceptedAppointmentsStream = _getAcceptedAppointmentsStream();
   }
 
-  // Fetch accepted appointments stream based on selected filter
+  // Function to fetch accepted appointments stream based on selected filter
   Stream<QuerySnapshot> _getAcceptedAppointmentsStream() {
     return FirebaseFirestore.instance
         .collection('salon')
@@ -152,17 +151,42 @@ class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: DropdownButton<String>(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10.0),
+            child: DropdownButtonFormField<String>(
               value: _selectedFilter,
-              items: const [
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.grey),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                filled: true,
+                fillColor: Colors.grey[200],
+              ),
+              items: [
                 DropdownMenuItem(
                   value: 'Paid',
-                  child: Text('Paid'),
+                  child: Text(
+                    'Paid',
+                    style: GoogleFonts.abel(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
                 DropdownMenuItem(
                   value: 'Not Paid',
-                  child: Text('Not Paid'),
+                  child: Text(
+                    'Not Paid',
+                    style: GoogleFonts.abel(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
               ],
               onChanged: (value) {
@@ -172,9 +196,8 @@ class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
                       _getAcceptedAppointmentsStream();
                 });
               },
-              style: GoogleFonts.abel(),
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down),
+              style: GoogleFonts.abel(fontSize: 16, color: Colors.black87),
+              dropdownColor: Colors.black,
             ),
           ),
           Expanded(
@@ -188,19 +211,20 @@ class _AcceptedAppointmentsPageState extends State<AcceptedAppointmentsPage> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.event_available,
-                              color: Colors.grey, size: 50),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'No accepted appointments found.',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                    return ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height -
+                              kToolbarHeight,
+                          child: const Center(
+                            child: Text(
+                              'No appointments found.',
+                              style:
+                                  TextStyle(fontSize: 18, color: Colors.grey),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     );
                   }
 

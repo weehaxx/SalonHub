@@ -18,7 +18,7 @@ class _CancelledBookingsPageState extends State<CancelledBookingsPage> {
     return FirebaseFirestore.instance
         .collectionGroup('appointments') // Fetch appointments across all salons
         .where('userId', isEqualTo: _user?.uid) // Filter by client userId
-        .where('status', isEqualTo: 'Declined') // Filter only declined bookings
+        .where('status', isEqualTo: 'Canceled') // Filter only declined bookings
         .snapshots();
   }
 
