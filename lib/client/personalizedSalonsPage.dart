@@ -31,7 +31,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
-      // Fetch user preferences
+      // Fetch current user's preferences
       final userPreferenceDoc = await FirebaseFirestore.instance
           .collection('user_preferences')
           .doc(userId)
@@ -53,44 +53,48 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
       final List<String> preferredServices =
           List<String>.from(userPreferences['preferred_services'] ?? []);
 
-      // Fetch user interactions (bookmarked salons and reviews)
-      final userInteractionDoc = await FirebaseFirestore.instance
-          .collection('user_interaction')
-          .doc(userId)
-          .get();
+      // Fetch all user interactions
+      final userInteractionsSnapshot =
+          await FirebaseFirestore.instance.collection('user_interaction').get();
 
-      final List<String> bookmarkedSalons = List<String>.from(
-          userInteractionDoc.data()?['bookmarked_salons'] ?? []);
+      final Set<String> matchedSalonIds = {};
+      final matchedInteractionSalons = <Map<String, dynamic>>[];
 
-      final reviewsSnapshot =
-          await userInteractionDoc.reference.collection('reviews').get();
+      for (final interactionDoc in userInteractionsSnapshot.docs) {
+        final interactionData = interactionDoc.data();
+        final List<String> bookmarkedSalons =
+            List<String>.from(interactionData['bookmarked_salons'] ?? []);
+        final List<dynamic> reviewedServices =
+            List<dynamic>.from(interactionData['reviewed_services'] ?? []);
 
-      final List reviewedSalons = reviewsSnapshot.docs.map((doc) {
-        return doc['salonId'];
-      }).toList();
+        // Match current user's preferences with bookmarked or reviewed salons
+        for (final bookmarkedSalon in bookmarkedSalons) {
+          matchedSalonIds.add(bookmarkedSalon);
+        }
 
-      // Combine both bookmarked and reviewed salons
-      final Set<String> interactionSalons = {
-        ...bookmarkedSalons,
-        ...reviewedSalons
-      };
+        for (final reviewedService in reviewedServices) {
+          final String serviceName = reviewedService['serviceName'] ?? '';
+          final String mainCategory = reviewedService['main_category'] ?? '';
+
+          if (preferredServices.contains(serviceName) &&
+              (preferredGender == null || preferredGender == mainCategory)) {
+            matchedSalonIds.add(reviewedService['salonId']);
+          }
+        }
+      }
 
       // Fetch salons
       final salonSnapshot =
           await FirebaseFirestore.instance.collection('salon').get();
 
-      // Filter out banned salons
-      final filteredSalonDocs = salonSnapshot.docs.where((doc) {
-        final data = doc.data();
-        return data['isBanned'] == null || data['isBanned'] == false;
-      }).toList();
-
       final matchedPreferenceSalons = <Map<String, dynamic>>[];
-      final matchedInteractionSalons = <Map<String, dynamic>>[];
 
-      for (final salonDoc in filteredSalonDocs) {
+      for (final salonDoc in salonSnapshot.docs) {
         final salonData = salonDoc.data();
         final salonId = salonDoc.id;
+
+        // Skip banned salons
+        if (salonData['isBanned'] == true) continue;
 
         // Calculate salon average rating from reviews
         final reviewsSnapshot =
@@ -103,51 +107,9 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             ? totalSalonRating / reviewsSnapshot.docs.length
             : 0;
 
-        // Check if the salon meets the rating preference
-        if (salonRating < preferredSalonRating) continue;
-
-        // Check services and match with preferences
-        final servicesSnapshot =
-            await salonDoc.reference.collection('services').get();
-
-        bool hasAtLeastOneMatchingService = false;
-
-        for (final preferredService in preferredServices) {
-          for (final serviceDoc in servicesSnapshot.docs) {
-            final serviceData = serviceDoc.data();
-            final String? serviceGender = serviceData['main_category'];
-            final String serviceName = serviceData['name'] ?? '';
-            final String serviceId = serviceDoc.id;
-
-            if (preferredService == serviceName) {
-              // Calculate service average rating
-              final serviceReviewsSnapshot = await salonDoc.reference
-                  .collection('reviews')
-                  .where('serviceId', isEqualTo: serviceId)
-                  .get();
-              double totalServiceRating = 0.0;
-              for (final review in serviceReviewsSnapshot.docs) {
-                totalServiceRating += (review['rating'] ?? 0).toDouble();
-              }
-              final double serviceRating =
-                  serviceReviewsSnapshot.docs.isNotEmpty
-                      ? totalServiceRating / serviceReviewsSnapshot.docs.length
-                      : 0;
-
-              if (serviceRating >= preferredServiceRating) {
-                if (preferredGender == null ||
-                    preferredGender == serviceGender) {
-                  hasAtLeastOneMatchingService = true;
-                  break; // Stop checking further for this preferred service
-                }
-              }
-            }
-          }
-          if (hasAtLeastOneMatchingService) break;
-        }
-
-        // Add to matched salons if there is at least one matching service
-        if (hasAtLeastOneMatchingService) {
+        // Check if the salon matches user's preferred rating
+        if (salonRating >= preferredSalonRating &&
+            salonRating < (preferredSalonRating + 1)) {
           final salonInfo = {
             'salon_id': salonId,
             'salon_name': salonData['salon_name'] ?? 'Unknown Salon',
@@ -158,10 +120,11 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             'close_time': salonData['close_time'] ?? 'Unknown',
           };
 
+          // Add to matched preference salons
           matchedPreferenceSalons.add(salonInfo);
 
-          // Add to interaction-matched salons if it's bookmarked or reviewed
-          if (interactionSalons.contains(salonId)) {
+          // Add to matched interaction salons if it matches the interaction
+          if (matchedSalonIds.contains(salonId)) {
             matchedInteractionSalons.add(salonInfo);
           }
         }
@@ -188,7 +151,6 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
           : ListView(
               padding: const EdgeInsets.all(8.0),
               children: [
-                // Section for user preference matches
                 if (_matchedPreferenceSalons.isNotEmpty) ...[
                   Text(
                     "Salons Matching Your Preferences",
@@ -202,7 +164,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height: 310, // Fixed height for horizontal scrolling
+                    height: 310,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _matchedPreferenceSalons.length,
@@ -211,8 +173,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
                           child: SizedBox(
-                            width:
-                                300, // Provide a fixed width for each container
+                            width: 300,
                             child: SalonContainer(
                               key: UniqueKey(),
                               salonId: salon['salon_id'],
@@ -227,11 +188,10 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                   ),
                 ],
-                // Section for user preference + interaction matches
                 if (_matchedInteractionSalons.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
-                    "Salons Matching Your Preferences & Interaction",
+                    "Salons Matching Preferences & Interactions",
                     style: GoogleFonts.abel(
                       textStyle: const TextStyle(
                         fontSize: 16,
@@ -242,17 +202,16 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height: 310, // Fixed height for horizontal scrolling
+                    height: 310,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: _matchedPreferenceSalons.length,
+                      itemCount: _matchedInteractionSalons.length,
                       itemBuilder: (context, index) {
-                        final salon = _matchedPreferenceSalons[index];
+                        final salon = _matchedInteractionSalons[index];
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
                           child: SizedBox(
-                            width:
-                                300, // Provide a fixed width for each container
+                            width: 300,
                             child: SalonContainer(
                               key: UniqueKey(),
                               salonId: salon['salon_id'],
@@ -267,8 +226,6 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                   ),
                 ],
-
-                // No matches fallback
                 if (_matchedPreferenceSalons.isEmpty &&
                     _matchedInteractionSalons.isEmpty)
                   Center(

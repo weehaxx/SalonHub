@@ -122,15 +122,7 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         return;
       }
 
-      if (_selectedMainCategory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Please select a category (Male/Female).')),
-        );
-        return;
-      }
-
-      // Fetch the user's details from Firestore
+      // Fetch the user's details from the Firestore `users` collection
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -148,12 +140,10 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         'rating': _currentRating,
         'timestamp': Timestamp.now(),
         'userId': user.uid,
-        'userName': userName,
+        'userName': userName, // Include the user's name
         'serviceId': _selectedServiceId,
         'service': _services.firstWhere(
             (service) => service['id'] == _selectedServiceId)['name'],
-        'main_category':
-            _selectedMainCategory, // Save main category (Male/Female)
         'isAppointmentReview': false,
         'upvotes': 0,
       };
@@ -170,6 +160,37 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
+      }
+
+      // Add data to `user_interaction` subcollection
+      final userInteractionRef = FirebaseFirestore.instance
+          .collection('user_interaction')
+          .doc(user.uid)
+          .collection('reviews');
+
+      final userInteractionData = {
+        'salonId': widget.salonId,
+        'serviceId': _selectedServiceId,
+        'service': _services.firstWhere(
+            (service) => service['id'] == _selectedServiceId)['name'],
+        'rating': _currentRating,
+        'timestamp': Timestamp.now(),
+      };
+
+      // Add or update the user's review in the user_interaction subcollection
+      final existingReviewQuery = await userInteractionRef
+          .where('salonId', isEqualTo: widget.salonId)
+          .where('serviceId', isEqualTo: _selectedServiceId)
+          .limit(1)
+          .get();
+
+      if (existingReviewQuery.docs.isNotEmpty) {
+        final existingReview = existingReviewQuery.docs.first;
+        await userInteractionRef
+            .doc(existingReview.id)
+            .update(userInteractionData);
+      } else {
+        await userInteractionRef.add(userInteractionData);
       }
 
       Navigator.pop(context, true); // Close the review page

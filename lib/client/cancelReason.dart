@@ -20,12 +20,24 @@ class CancelReason extends StatefulWidget {
 class _CancelReasonState extends State<CancelReason> {
   final TextEditingController _reasonController = TextEditingController();
   bool _isSubmitting = false;
+  String? _selectedReason;
+
+  // List of predefined reasons
+  final List<String> _predefinedReasons = [
+    "Change of plans",
+    "Found another appointment",
+    "Not feeling well",
+    "Unable to attend",
+    "Other"
+  ];
 
   Future<void> _submitCancellation() async {
-    if (_reasonController.text.isEmpty) {
+    if (_selectedReason == null && _reasonController.text.isEmpty) {
+      // Ensure at least one reason is provided
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please provide a reason for cancellation')),
+          content: Text('Please select or provide a reason for cancellation'),
+        ),
       );
       return;
     }
@@ -41,10 +53,15 @@ class _CancelReasonState extends State<CancelReason> {
           .collection('appointments')
           .doc(widget.appointmentId);
 
+      // Combine selected or custom reason
+      final reason = _selectedReason == "Other"
+          ? _reasonController.text
+          : _selectedReason ?? _reasonController.text;
+
       // Update the status to "Canceled" and log the reason
       await appointmentRef.update({
         'status': 'Canceled',
-        'cancelReason': _reasonController.text,
+        'cancelReason': reason,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -71,7 +88,7 @@ class _CancelReasonState extends State<CancelReason> {
         title: const Text('Cancel Appointment'),
         backgroundColor: const Color(0xff355E3B),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,25 +98,67 @@ class _CancelReasonState extends State<CancelReason> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _reasonController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Enter your reason here...',
-              ),
+
+            // Predefined reasons
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _predefinedReasons.length,
+              itemBuilder: (context, index) {
+                final reason = _predefinedReasons[index];
+                return ListTile(
+                  title: Text(reason),
+                  leading: Radio<String>(
+                    value: reason,
+                    groupValue: _selectedReason,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedReason = value;
+                        if (value != "Other") {
+                          _reasonController.clear();
+                        }
+                      });
+                    },
+                  ),
+                );
+              },
             ),
+
+            // TextField for custom reason
+            if (_selectedReason == "Other")
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                child: TextField(
+                  controller: _reasonController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter your reason here...',
+                    labelText: 'Custom Reason',
+                  ),
+                ),
+              ),
+
             const SizedBox(height: 20),
+
+            // Submit Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submitCancellation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff355E3B),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Submit'),
+                    : const Text(
+                        'Submit',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ),
           ],
