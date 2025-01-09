@@ -122,7 +122,16 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
         return;
       }
 
-      // Fetch the user's details from the Firestore `users` collection
+      // Validate that a service and category are selected
+      if (_selectedMainCategory == null || _selectedServiceId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please select a category and service.')),
+        );
+        return;
+      }
+
+      // Fetch the user's details
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -130,20 +139,23 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
 
       final userName = userDoc.data()?['name'] ?? 'Anonymous';
 
+      // Reference for the salon reviews collection
       final reviewsRef = FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
           .collection('reviews');
 
+      // Prepare review data
       final reviewData = {
         'review': _reviewController.text,
         'rating': _currentRating,
         'timestamp': Timestamp.now(),
         'userId': user.uid,
-        'userName': userName, // Include the user's name
+        'userName': userName,
         'serviceId': _selectedServiceId,
         'service': _services.firstWhere(
             (service) => service['id'] == _selectedServiceId)['name'],
+        'main_category': _selectedMainCategory,
         'isAppointmentReview': false,
         'upvotes': 0,
       };
@@ -155,43 +167,31 @@ class _WalkInReviewPageState extends State<WalkInReviewPage> {
           const SnackBar(content: Text('Review updated successfully!')),
         );
       } else {
-        // Add new review
+        // Add a new review
         await reviewsRef.add(reviewData);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
       }
 
-      // Add data to `user_interaction` subcollection
+      // Update `user_interaction` document
       final userInteractionRef = FirebaseFirestore.instance
           .collection('user_interaction')
-          .doc(user.uid)
-          .collection('reviews');
+          .doc(user.uid);
 
-      final userInteractionData = {
+      final interactionData = {
         'salonId': widget.salonId,
         'serviceId': _selectedServiceId,
-        'service': _services.firstWhere(
+        'serviceName': _services.firstWhere(
             (service) => service['id'] == _selectedServiceId)['name'],
+        'main_category': _selectedMainCategory,
         'rating': _currentRating,
-        'timestamp': Timestamp.now(),
       };
 
-      // Add or update the user's review in the user_interaction subcollection
-      final existingReviewQuery = await userInteractionRef
-          .where('salonId', isEqualTo: widget.salonId)
-          .where('serviceId', isEqualTo: _selectedServiceId)
-          .limit(1)
-          .get();
-
-      if (existingReviewQuery.docs.isNotEmpty) {
-        final existingReview = existingReviewQuery.docs.first;
-        await userInteractionRef
-            .doc(existingReview.id)
-            .update(userInteractionData);
-      } else {
-        await userInteractionRef.add(userInteractionData);
-      }
+      // Merge the review into `reviewed_services` array in `user_interaction`
+      await userInteractionRef.set({
+        'reviewed_services': FieldValue.arrayUnion([interactionData])
+      }, SetOptions(merge: true));
 
       Navigator.pop(context, true); // Close the review page
     } catch (e) {
