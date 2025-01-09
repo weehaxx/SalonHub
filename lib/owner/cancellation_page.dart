@@ -133,7 +133,7 @@ class _CancellationPageState extends State<CancellationPage> {
                               const SizedBox(height: 8),
                               // Display the reason for cancellation
                               Text(
-                                'Reason: ${data['cancelReason'] ?? 'No reason provided'}',
+                                'Reason: ${data['declineReason'] ?? data['cancelReason'] ?? 'No reason provided'}',
                                 style: GoogleFonts.abel(
                                   fontSize: 14,
                                   color: Colors.redAccent,
