@@ -30,33 +30,78 @@ class _PendingappointmentState extends State<Pendingappointment> {
 
   // Fetch pending appointments stream
   Stream<QuerySnapshot> _getPendingAppointmentsStream() {
-    return FirebaseFirestore.instance
+    final stream = FirebaseFirestore.instance
         .collection('salon')
         .doc(_user?.uid)
         .collection('appointments')
         .where('status', isEqualTo: 'Pending')
-        .snapshots()
-        .map((snapshot) {
-      for (var doc in snapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
-        if (data['status'] == 'Pending' && data['notified'] != true) {
-          // Show notification for new booking request
-          _showNotification(
-            'New Booking Request',
-            '${data['userName']} has requested a booking for ${data['services'] ?? 'services'}.',
-          );
+        .snapshots();
 
-          // Mark the notification as sent
-          FirebaseFirestore.instance
-              .collection('salon')
-              .doc(_user?.uid)
-              .collection('appointments')
-              .doc(doc.id)
-              .update({'notified': true});
-        }
-      }
-      return snapshot;
+    // Add a side-effect listener to process appointments
+    stream.listen((snapshot) {
+      _processPendingAppointments(
+          snapshot); // Process appointments in real time
     });
+
+    return stream; // Return the original stream
+  }
+
+  Future<void> _processPendingAppointments(QuerySnapshot snapshot) async {
+    final now = DateTime.now();
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+
+      try {
+        final date = data['date']; // Example: "2025-01-10"
+        final time = data['time']; // Example: "5:00 PM"
+        final scheduledTime =
+            DateFormat('yyyy-MM-dd h:mm a').parse('$date $time');
+
+        if (now.isAfter(scheduledTime.subtract(const Duration(hours: 3)))) {
+          // Check if already processed
+          if (data['status'] == 'Pending') {
+            // Auto-decline overdue appointment
+            await FirebaseFirestore.instance
+                .collection('salon')
+                .doc(_user?.uid)
+                .collection('appointments')
+                .doc(doc.id)
+                .update({
+              'status': 'Canceled',
+              'declineReason': 'Failure to accept or decline appointment',
+            });
+
+            // Increment missed count
+            missedAppointmentCount += 1;
+
+            // Handle banning logic
+            if (missedAppointmentCount >= 3) {
+              await _handleSalonBan();
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        print('Error processing appointment ${doc.id}: $e');
+      }
+    }
+  }
+
+  Future<void> _handleSalonBan() async {
+    final salonDocRef =
+        FirebaseFirestore.instance.collection('salon').doc(_user?.uid);
+
+    await salonDocRef.update({
+      'isBanned': true,
+      'banEndDate':
+          DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+      'missedAppointmentCount': 0, // Reset missed count
+    });
+
+    if (mounted) {
+      _showBanPromptDialog();
+    }
   }
 
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
@@ -131,22 +176,60 @@ class _PendingappointmentState extends State<Pendingappointment> {
         'missedAppointmentCount': 0, // Reset missed count after banning
       });
 
-      // Log out the user
-      await FirebaseAuth.instance.signOut();
-
-      // Redirect to banned page
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const BannedPage(),
-          ),
-        );
+        // Show prompt dialog before signing out
+        _showBanPromptDialog();
       }
     } else {
       // Save the updated missed count if not banned
       await salonDocRef.update({'missedAppointmentCount': currentMissedCount});
     }
+  }
+
+  void _showBanPromptDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible:
+          false, // Prevent closing the dialog by tapping outside
+      builder: (BuildContext context) {
+        return PopScope(
+          canPop:
+              false, // Prevent the dialog from being dismissed by back button
+          child: AlertDialog(
+            title: Text(
+              'Account Banned',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Your account has been banned for 3 days due to failure to respond to appointments within the required time. You will now be logged out.',
+              style: GoogleFonts.poppins(),
+            ),
+            actions: <Widget>[
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
+                child: Text(
+                  'OK',
+                  style: GoogleFonts.poppins(color: Colors.white),
+                ),
+                onPressed: () async {
+                  Navigator.of(context).pop(); // Close the dialog
+                  await FirebaseAuth.instance.signOut(); // Sign out the user
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const BannedPage(), // Redirect to Banned Page
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showNotification(String title, String body) async {
