@@ -284,8 +284,8 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
     return ElevatedButton(
       onPressed: isCanceled ||
               isPending ||
-              appointment['rescheduled'] ||
-              !appointment['isPaid'] ||
+              (appointment['rescheduled'] ?? false) ||
+              !(appointment['isPaid'] ?? false) ||
               isDone
           ? null
           : () async {
@@ -295,12 +295,12 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => Reschedule(
-                      appointmentId: appointment['appointmentId'],
-                      salonId: appointment['salonId'],
-                      stylistName: appointment['stylistName'],
-                      service: appointment['service'],
-                      initialDate: appointment['date'],
-                      initialTime: appointment['time'],
+                      appointmentId: appointment['appointmentId'] ?? '',
+                      salonId: appointment['salonId'] ?? '',
+                      stylistName: appointment['stylistName'] ?? 'Unknown',
+                      service: appointment['service'] ?? 'Unknown Service',
+                      initialDate: appointment['date'] ?? '',
+                      initialTime: appointment['time'] ?? '',
                     ),
                   ),
                 );
@@ -309,8 +309,8 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
       style: ElevatedButton.styleFrom(
         backgroundColor: isCanceled ||
                 isPending ||
-                appointment['rescheduled'] ||
-                !appointment['isPaid'] ||
+                (appointment['rescheduled'] ?? false) ||
+                !(appointment['isPaid'] ?? false) ||
                 isDone
             ? Colors.grey
             : Colors.orange,

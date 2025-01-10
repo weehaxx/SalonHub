@@ -141,73 +141,156 @@ class _PaidAppointmentsPageState extends State<PaidAppointmentsPage> {
                     'Unknown'; // Added this line
 
                 return Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  elevation: 5,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(15.0),
+                  elevation: 6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 2,
+                          blurRadius: 6,
+                          offset: const Offset(0, 3), // Shadow position
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${appointment['date']} at ${appointment['time']}',
-                          style: GoogleFonts.abel(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Stylist: ${appointment['stylist']}',
-                          style: GoogleFonts.abel(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-
-                        // Displaying the main category
-                        Text(
-                          'Category: $mainCategory',
-                          style: GoogleFonts.abel(
-                            fontSize: 14,
-                            color: Colors.blueAccent,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-
-                        Text(
-                          'Total Price: Php ${appointment['totalPrice']}',
-                          style: GoogleFonts.abel(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Reference Number: ${appointment['reference_number']}',
-                          style: GoogleFonts.abel(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
+                        // Date and Time
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today,
+                                size: 18, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${appointment['date']} at ${appointment['time']}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            _markAppointmentDone(
+
+                        // Stylist
+                        Row(
+                          children: [
+                            const Icon(Icons.person,
+                                size: 18, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Stylist: ${appointment['stylist']}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Main Category
+                        Row(
+                          children: [
+                            const Icon(Icons.category,
+                                size: 18, color: Colors.blueAccent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Category: $mainCategory',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.blue.shade800,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Total Price
+                        Row(
+                          children: [
+                            const Icon(Icons.attach_money,
+                                size: 18, color: Colors.green),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Total Price: Php ${appointment['totalPrice']}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Reference Number
+                        Row(
+                          children: [
+                            const Icon(Icons.confirmation_number,
+                                size: 18, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Reference Number: ${appointment['reference_number']}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 20, color: Colors.grey),
+
+                        // Action Button
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _markAppointmentDone(
                                 appointmentDoc.id,
                                 appointment['userId'],
-                                appointment['reference_number']);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff355E3B),
-                          ),
-                          child: const Text(
-                            'Done',
-                            style: TextStyle(color: Colors.white),
+                                appointment['reference_number'],
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff355E3B),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.done,
+                                size: 20, color: Colors.white),
+                            label: Text(
+                              'Mark as Done',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ],

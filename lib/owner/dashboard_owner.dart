@@ -8,7 +8,6 @@ import 'package:salon_hub/owner/Logs_page.dart';
 import 'package:salon_hub/owner/Reviews_Page.dart';
 import 'package:salon_hub/owner/Salon_Images.dart';
 import 'package:salon_hub/owner/accepted_appointments.dart';
-import 'package:salon_hub/owner/declined_appointments_page.dart';
 import 'package:salon_hub/owner/employees_owner.dart';
 import 'package:salon_hub/owner/paid_appointments.dart';
 import 'package:salon_hub/owner/pendingappointment.dart';
@@ -720,26 +719,6 @@ class _DashboardOwnerState extends State<DashboardOwner> {
                   },
                 ),
                 const SizedBox(height: 20),
-                _buildDashboardItem(
-                  declinedCount.toString(),
-                  "Declined Apppointments",
-                  const Color(0xff355E3B),
-                  const Color(0xFFF9F9F9),
-                  const Icon(Icons.cancel,
-                      size: 40, color: Color.fromARGB(255, 182, 176, 177)),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DeclinedAppointmentsPage(),
-                      ),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        fetchDeclinedCount();
-                      }
-                    });
-                  },
-                ),
               ],
             ),
           ),
