@@ -38,8 +38,7 @@ class _FullMapPageState extends State<FullMapPage> {
 
   // Fetch directions between the user and salon locations
   Future<void> _fetchDirections() async {
-    String googleAPIKey =
-        'AIzaSyDYXRSNJ0o-_1PuF3zaiUPhEy3x4panf7U'; // Replace with your API key
+    String googleAPIKey = 'YOUR_GOOGLE_API_KEY'; // Replace with your API key
     String url =
         'https://maps.googleapis.com/maps/api/directions/json?origin=${widget.userLocation.latitude},${widget.userLocation.longitude}&destination=${widget.salonLocation.latitude},${widget.salonLocation.longitude}&key=$googleAPIKey';
 
@@ -112,38 +111,26 @@ class _FullMapPageState extends State<FullMapPage> {
 
   // Adjust the map to fit both locations
   void _fitMapToBounds() {
-    LatLng southwest;
-    LatLng northeast;
-
-    // Determine the southwest and northeast corners based on latitude and longitude
-    if (widget.userLocation.latitude < widget.salonLocation.latitude) {
-      southwest = widget.userLocation;
-      northeast = widget.salonLocation;
-    } else {
-      southwest = widget.salonLocation;
-      northeast = widget.userLocation;
-    }
-
-    if (widget.userLocation.longitude < widget.salonLocation.longitude) {
-      southwest = LatLng(southwest.latitude, widget.userLocation.longitude);
-      northeast = LatLng(northeast.latitude, widget.salonLocation.longitude);
-    } else {
-      southwest = LatLng(southwest.latitude, widget.salonLocation.longitude);
-      northeast = LatLng(northeast.latitude, widget.userLocation.longitude);
-    }
-
     LatLngBounds bounds = LatLngBounds(
-      southwest: southwest,
-      northeast: northeast,
+      southwest: LatLng(
+        widget.userLocation.latitude < widget.salonLocation.latitude
+            ? widget.userLocation.latitude
+            : widget.salonLocation.latitude,
+        widget.userLocation.longitude < widget.salonLocation.longitude
+            ? widget.userLocation.longitude
+            : widget.salonLocation.longitude,
+      ),
+      northeast: LatLng(
+        widget.userLocation.latitude > widget.salonLocation.latitude
+            ? widget.userLocation.latitude
+            : widget.salonLocation.latitude,
+        widget.userLocation.longitude > widget.salonLocation.longitude
+            ? widget.userLocation.longitude
+            : widget.salonLocation.longitude,
+      ),
     );
 
     _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-  }
-
-  // Show info windows automatically for markers
-  void _showInfoWindows() {
-    _mapController.showMarkerInfoWindow(const MarkerId('userLocation'));
-    _mapController.showMarkerInfoWindow(const MarkerId('salonLocation'));
   }
 
   @override
@@ -167,22 +154,20 @@ class _FullMapPageState extends State<FullMapPage> {
           Marker(
             markerId: const MarkerId('userLocation'),
             position: widget.userLocation,
-            infoWindow: const InfoWindow(
-                title: 'You'), // Automatically displays as "You"
+            infoWindow: const InfoWindow(title: 'Your Location'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueGreen), // Different color for user
           ),
           Marker(
             markerId: const MarkerId('salonLocation'),
             position: widget.salonLocation,
-            infoWindow:
-                InfoWindow(title: widget.salonName), // Displays salon name
+            infoWindow: InfoWindow(title: widget.salonName),
           ),
         },
         polylines: _polylineCoordinates.isEmpty ? {} : {_routePolyline},
         onMapCreated: (GoogleMapController controller) {
           _mapController = controller;
           _fitMapToBounds();
-          // Automatically show info windows after a short delay
-          Future.delayed(const Duration(milliseconds: 500), _showInfoWindows);
         },
       ),
     );
