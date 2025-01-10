@@ -184,102 +184,109 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(8.0),
-              children: [
-                if (_matchedPreferenceSalons.isNotEmpty) ...[
-                  Text(
-                    "Salons Matching Your Preferences",
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 310,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _matchedPreferenceSalons.length,
-                      itemBuilder: (context, index) {
-                        final salon = _matchedPreferenceSalons[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: SizedBox(
-                            width: 300,
-                            child: SalonContainer(
-                              key: UniqueKey(),
-                              salonId: salon['salon_id'],
-                              salon: salon,
-                              rating: salon['rating'],
-                              userId:
-                                  FirebaseAuth.instance.currentUser?.uid ?? '',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-                if (_matchedInteractionSalons.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    "Salons Matching Preferences & Interactions",
-                    style: GoogleFonts.abel(
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 310,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _matchedInteractionSalons.length,
-                      itemBuilder: (context, index) {
-                        final salon = _matchedInteractionSalons[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: SizedBox(
-                            width: 300,
-                            child: SalonContainer(
-                              key: UniqueKey(),
-                              salonId: salon['salon_id'],
-                              salon: salon,
-                              rating: salon['rating'],
-                              userId:
-                                  FirebaseAuth.instance.currentUser?.uid ?? '',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-                if (_matchedPreferenceSalons.isEmpty &&
-                    _matchedInteractionSalons.isEmpty)
-                  Center(
-                    child: Text(
-                      "No matched salons found.",
+      body: RefreshIndicator(
+        onRefresh: _fetchMatchedSalons,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(8.0),
+                children: [
+                  if (_matchedPreferenceSalons.isNotEmpty) ...[
+                    Text(
+                      "Salons Matching Your Preferences",
                       style: GoogleFonts.abel(
                         textStyle: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: Colors.green,
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 310,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _matchedPreferenceSalons.length,
+                        itemBuilder: (context, index) {
+                          final salon = _matchedPreferenceSalons[index];
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: SizedBox(
+                              width: 300,
+                              child: SalonContainer(
+                                key: UniqueKey(),
+                                salonId: salon['salon_id'],
+                                salon: salon,
+                                rating: salon['rating'],
+                                userId:
+                                    FirebaseAuth.instance.currentUser?.uid ??
+                                        '',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  if (_matchedInteractionSalons.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      "Salons Matching Preferences & Interactions",
+                      style: GoogleFonts.abel(
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 310,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _matchedInteractionSalons.length,
+                        itemBuilder: (context, index) {
+                          final salon = _matchedInteractionSalons[index];
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: SizedBox(
+                              width: 300,
+                              child: SalonContainer(
+                                key: UniqueKey(),
+                                salonId: salon['salon_id'],
+                                salon: salon,
+                                rating: salon['rating'],
+                                userId:
+                                    FirebaseAuth.instance.currentUser?.uid ??
+                                        '',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  if (_matchedPreferenceSalons.isEmpty &&
+                      _matchedInteractionSalons.isEmpty)
+                    Center(
+                      child: Text(
+                        "No matched salons found.",
+                        style: GoogleFonts.abel(
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
     );
   }
 }

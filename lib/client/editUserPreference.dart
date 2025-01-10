@@ -133,7 +133,11 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
       appBar: AppBar(
         title: Text(
           'Edit Preferences',
-          style: GoogleFonts.abel(color: Colors.white),
+          style: GoogleFonts.abel(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: const Color(0xff355E3B),
         centerTitle: true,
@@ -150,6 +154,7 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
@@ -195,11 +200,13 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: services.map((service) {
                   return ElevatedButton(
                     onPressed: () {
@@ -238,6 +245,7 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
@@ -279,6 +287,7 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
@@ -314,31 +323,24 @@ class _EditUserPreferenceState extends State<EditUserPreference> {
                   );
                 }),
               ),
-              const SizedBox(height: 24),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _savePreferences,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff355E3B),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Save Preferences',
-                    style: GoogleFonts.abel(
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 80), // Spacing for floating button
             ],
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _savePreferences,
+        backgroundColor: const Color(0xff355E3B),
+        label: Text(
+          'Save Preferences',
+          style: GoogleFonts.abel(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

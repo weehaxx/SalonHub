@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CancelReason extends StatefulWidget {
   final String salonId;
@@ -22,7 +24,6 @@ class _CancelReasonState extends State<CancelReason> {
   bool _isSubmitting = false;
   String? _selectedReason;
 
-  // List of predefined reasons
   final List<String> _predefinedReasons = [
     "Change of plans",
     "Found another appointment",
@@ -33,7 +34,6 @@ class _CancelReasonState extends State<CancelReason> {
 
   Future<void> _submitCancellation() async {
     if (_selectedReason == null && _reasonController.text.isEmpty) {
-      // Ensure at least one reason is provided
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select or provide a reason for cancellation'),
@@ -47,29 +47,103 @@ class _CancelReasonState extends State<CancelReason> {
     });
 
     try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      if (userId == null) {
+        throw Exception("User is not logged in.");
+      }
+
+      final reason = _selectedReason == "Other"
+          ? _reasonController.text
+          : _selectedReason ?? _reasonController.text;
+
       final appointmentRef = FirebaseFirestore.instance
           .collection('salon')
           .doc(widget.salonId)
           .collection('appointments')
           .doc(widget.appointmentId);
 
-      // Combine selected or custom reason
-      final reason = _selectedReason == "Other"
-          ? _reasonController.text
-          : _selectedReason ?? _reasonController.text;
-
-      // Update the status to "Canceled" and log the reason
+      // Update the appointment status and reason
       await appointmentRef.update({
         'status': 'Canceled',
         'cancelReason': reason,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
+      // Update user cancellation logic for unpaid appointments
+      if (!widget.isPaid) {
+        final userRef =
+            FirebaseFirestore.instance.collection('users').doc(userId);
+        final userSnapshot = await userRef.get();
+
+        if (userSnapshot.exists) {
+          final userData = userSnapshot.data();
+          int cancelCount = userData?['cancelCount'] ?? 0;
+
+          cancelCount++;
+
+          // Check if the user should be warned or banned
+          if (cancelCount == 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Warning: If you cancel one more unpaid appointment, your account will be banned.',
+                ),
+              ),
+            );
+          }
+
+          if (cancelCount >= 3) {
+            // Ban the user
+            await userRef.update({
+              'cancelCount': cancelCount,
+              'isBanned': true,
+              'bannedAt': FieldValue.serverTimestamp(),
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Your account has been banned due to excessive cancellations.',
+                ),
+              ),
+            );
+
+            // Log the user out and redirect to login
+            await FirebaseAuth.instance.signOut();
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/pages/login_page.dart',
+                (Route<dynamic> route) => false,
+              );
+            }
+            return;
+          } else {
+            // Increment the cancel count
+            await userRef.update({'cancelCount': cancelCount});
+          }
+        } else {
+          // Initialize the user's cancellation count
+          await userRef.set({
+            'cancelCount': 1,
+            'isBanned': false,
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Warning: If you cancel three consecutive unpaid appointments, your account will be banned.',
+              ),
+            ),
+          );
+        }
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Appointment canceled successfully!')),
       );
-      Navigator.pop(context); // Close the reason page
-      Navigator.pop(context); // Return to the main schedule page
+      Navigator.pop(context);
+      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to cancel appointment: $e')),
@@ -81,83 +155,180 @@ class _CancelReasonState extends State<CancelReason> {
     }
   }
 
+  Future<void> _showConfirmationDialog() async {
+    final reason = _selectedReason == "Other"
+        ? _reasonController.text
+        : _selectedReason ?? "";
+
+    if (reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select or provide a reason for cancellation'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Confirm Cancellation',
+          style: GoogleFonts.abel(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Are you sure you want to cancel this appointment for the following reason?\n\n"$reason"',
+          style: GoogleFonts.abel(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'No',
+              style: GoogleFonts.abel(color: Colors.red),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff355E3B),
+            ),
+            child: Text(
+              'Yes',
+              style: GoogleFonts.abel(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _submitCancellation();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cancel Appointment'),
+        title: Text(
+          'Cancel Appointment',
+          style: GoogleFonts.abel(color: Colors.white),
+        ),
         backgroundColor: const Color(0xff355E3B),
+        centerTitle: true,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Reason for Cancellation:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              'Reason for Cancellation',
+              style: GoogleFonts.abel(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xff355E3B),
+              ),
             ),
-            const SizedBox(height: 10),
-
-            // Predefined reasons
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _predefinedReasons.length,
-              itemBuilder: (context, index) {
-                final reason = _predefinedReasons[index];
-                return ListTile(
-                  title: Text(reason),
-                  leading: Radio<String>(
-                    value: reason,
-                    groupValue: _selectedReason,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedReason = value;
-                        if (value != "Other") {
-                          _reasonController.clear();
-                        }
-                      });
-                    },
-                  ),
-                );
-              },
-            ),
-
-            // TextField for custom reason
-            if (_selectedReason == "Other")
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: TextField(
-                  controller: _reasonController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Enter your reason here...',
-                    labelText: 'Custom Reason',
-                  ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: _predefinedReasons.map((reason) {
+                    return ListTile(
+                      title: Text(
+                        reason,
+                        style: GoogleFonts.abel(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      leading: Radio<String>(
+                        value: reason,
+                        groupValue: _selectedReason,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedReason = value;
+                            if (value != "Other") {
+                              _reasonController.clear();
+                            }
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-
-            const SizedBox(height: 20),
-
-            // Submit Button
+            ),
+            const SizedBox(height: 16),
+            if (_selectedReason == "Other")
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Custom Reason',
+                    style: GoogleFonts.abel(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xff355E3B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _reasonController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      hintText: 'Enter your reason here...',
+                      hintStyle: GoogleFonts.abel(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: const Color(0xff355E3B),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitCancellation,
+                onPressed: _isSubmitting ? null : _showConfirmationDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff355E3B),
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  elevation: 5,
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
+                    : Text(
                         'Submit',
-                        style: TextStyle(fontSize: 16),
+                        style: GoogleFonts.abel(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
               ),
             ),

@@ -135,7 +135,11 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
       appBar: AppBar(
         title: Text(
           'User Preferences',
-          style: GoogleFonts.abel(color: Colors.white),
+          style: GoogleFonts.abel(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: const Color(0xff355E3B),
         centerTitle: true,
@@ -152,6 +156,7 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
@@ -197,33 +202,16 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: services.map((service) {
-                  return ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        if (preferredServices.contains(service)) {
-                          preferredServices.remove(service);
-                        } else {
-                          preferredServices.add(service);
-                        }
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: preferredServices.contains(service)
-                          ? const Color(0xff355E3B)
-                          : Colors.grey[300],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    child: Text(
+                  return ChoiceChip(
+                    label: Text(
                       service,
                       style: GoogleFonts.abel(
                         color: preferredServices.contains(service)
@@ -231,6 +219,17 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                             : Colors.black54,
                       ),
                     ),
+                    selected: preferredServices.contains(service),
+                    selectedColor: const Color(0xff355E3B),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          preferredServices.add(service);
+                        } else {
+                          preferredServices.remove(service);
+                        }
+                      });
+                    },
                   );
                 }).toList(),
               ),
@@ -240,40 +239,23 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: List.generate(5, (index) {
-                  double rating = index + 1.0;
-                  return ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        preferredServiceRating = rating;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: preferredServiceRating == rating
-                          ? const Color(0xff355E3B)
-                          : Colors.grey[300],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    child: Text(
-                      rating.toStringAsFixed(1),
-                      style: GoogleFonts.abel(
-                        color: preferredServiceRating == rating
-                            ? Colors.white
-                            : Colors.black54,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }),
+              Slider(
+                value: preferredServiceRating,
+                onChanged: (value) {
+                  setState(() {
+                    preferredServiceRating = value;
+                  });
+                },
+                divisions: 5,
+                min: 1.0,
+                max: 5.0,
+                label: preferredServiceRating.toString(),
+                activeColor: const Color(0xff355E3B),
+                inactiveColor: Colors.grey[300],
               ),
               const SizedBox(height: 16),
               Text(
@@ -281,66 +263,43 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                 style: GoogleFonts.abel(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xff355E3B),
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: List.generate(5, (index) {
-                  double rating = index + 1.0;
-                  return ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        preferredSalonRating = rating;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: preferredSalonRating == rating
-                          ? const Color(0xff355E3B)
-                          : Colors.grey[300],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    child: Text(
-                      rating.toStringAsFixed(1),
-                      style: GoogleFonts.abel(
-                        color: preferredSalonRating == rating
-                            ? Colors.white
-                            : Colors.black54,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }),
+              Slider(
+                value: preferredSalonRating,
+                onChanged: (value) {
+                  setState(() {
+                    preferredSalonRating = value;
+                  });
+                },
+                divisions: 5,
+                min: 1.0,
+                max: 5.0,
+                label: preferredSalonRating.toString(),
+                activeColor: const Color(0xff355E3B),
+                inactiveColor: Colors.grey[300],
               ),
-              const SizedBox(height: 24),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _savePreferences,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff355E3B),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    'Save Preferences',
-                    style: GoogleFonts.abel(
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 80), // Spacing for floating button
             ],
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _savePreferences,
+        backgroundColor: const Color(0xff355E3B),
+        label: Text(
+          'Save Preferences',
+          style: GoogleFonts.abel(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        icon: const Icon(Icons.save, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

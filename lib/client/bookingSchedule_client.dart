@@ -333,17 +333,38 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
     return ElevatedButton(
       onPressed: isCanceled || isDone
           ? null
-          : () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CancelReason(
-                    salonId: appointment['salonId'],
-                    appointmentId: appointment['appointmentId'],
-                    isPaid: appointment['isPaid'],
+          : () async {
+              // Show warning if the appointment is accepted and unpaid
+              if (appointment['isAccepted'] && !appointment['isPaid']) {
+                final confirmed = await _showCancellationConfirmationDialog(
+                  isPaid: false,
+                  isAccepted: true,
+                );
+
+                if (confirmed == true) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CancelReason(
+                        salonId: appointment['salonId'],
+                        appointmentId: appointment['appointmentId'],
+                        isPaid: appointment['isPaid'],
+                      ),
+                    ),
+                  );
+                }
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CancelReason(
+                      salonId: appointment['salonId'],
+                      appointmentId: appointment['appointmentId'],
+                      isPaid: appointment['isPaid'],
+                    ),
                   ),
-                ),
-              );
+                );
+              }
             },
       style: ElevatedButton.styleFrom(
         backgroundColor: isCanceled || isDone ? Colors.grey : Colors.red,
@@ -410,19 +431,23 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
   }
 
   // Show confirmation dialog for cancellation
-  Future<bool?> _showCancellationConfirmationDialog(
-      {required bool isPaid, required bool isAccepted}) {
+  Future<bool?> _showCancellationConfirmationDialog({
+    required bool isPaid,
+    required bool isAccepted,
+  }) {
     return showDialog<bool>(
       context: context,
       builder: (context) {
-        String warningMessage = isPaid
-            ? 'Are you sure you want to cancel this appointment? Your payment will not be refunded.'
-            : 'Are you sure you want to cancel this appointment? This appointment will be deleted if it is not paid.';
+        String warningMessage;
 
-        // Additional warning if the appointment is accepted
-        if (isAccepted) {
-          warningMessage +=
-              '\n\nWarning: If you cancel more than three accepted appointments in a day, your account may be blocked.';
+        if (isPaid) {
+          warningMessage =
+              'Are you sure you want to cancel this appointment? Your payment will not be refunded.';
+        } else if (isAccepted) {
+          warningMessage =
+              'This is an accepted appointment and not yet paid. Canceling may result in account restrictions if repeated.';
+        } else {
+          warningMessage = 'Are you sure you want to cancel this appointment?';
         }
 
         return AlertDialog(

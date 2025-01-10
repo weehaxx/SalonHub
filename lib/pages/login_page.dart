@@ -251,6 +251,31 @@ class _LoginState extends State<Login> {
       // Wait for Firebase to sync user data
       await FirebaseAuth.instance.currentUser!.reload();
 
+      // Check if the user is banned in the users collection
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>?;
+
+        if (userData?['isBanned'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your account has been banned. Please contact support for assistance.',
+              ),
+            ),
+          );
+
+          // Log out the banned user and stop further processing
+          await FirebaseAuth.instance.signOut();
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
       // Check if the user is a salon owner
       DocumentSnapshot salonDoc =
           await FirebaseFirestore.instance.collection('salon').doc(uid).get();
@@ -312,20 +337,34 @@ class _LoginState extends State<Login> {
       }
 
       // If not a salon owner, check the user role
-      DocumentSnapshot userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
       if (userDoc.exists) {
         final userData = userDoc.data() as Map<String, dynamic>?;
         final role = userData?['role'];
 
         if (role == 'client') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SalonhomepageClient(),
-            ),
-          );
+          // Check if preferences exist
+          DocumentSnapshot preferencesDoc = await FirebaseFirestore.instance
+              .collection('user_preferences')
+              .doc(uid)
+              .get();
+
+          if (preferencesDoc.exists) {
+            // Navigate to client homepage if preferences exist
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SalonhomepageClient(),
+              ),
+            );
+          } else {
+            // Navigate to the preference page if preferences do not exist
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const UserPreferencesPage(),
+              ),
+            );
+          }
         } else {
           _showErrorDialog(
             title: 'Role Not Recognized',

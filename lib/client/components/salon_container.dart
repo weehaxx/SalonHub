@@ -67,10 +67,28 @@ class _SalonContainerState extends State<SalonContainer> {
         await userDocRef.update({
           'bookmarked_salons': FieldValue.arrayRemove([widget.salonId]),
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${widget.salon['salon_name']} removed from bookmarks.',
+              style: GoogleFonts.abel(fontSize: 14),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
       } else {
         await userDocRef.set({
           'bookmarked_salons': FieldValue.arrayUnion([widget.salonId]),
         }, SetOptions(merge: true));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${widget.salon['salon_name']} added to bookmarks.',
+              style: GoogleFonts.abel(fontSize: 14),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
 
       setState(() {
@@ -158,7 +176,6 @@ class _SalonContainerState extends State<SalonContainer> {
 
   @override
   Widget build(BuildContext context) {
-    // Safely handle salon fields with default values
     final salonName = widget.salon['salon_name']?.toString() ?? 'Unknown Salon';
     final salonAddress =
         widget.salon['address']?.toString() ?? 'No Address Available';
