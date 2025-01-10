@@ -13,34 +13,33 @@ class BannedPage extends StatefulWidget {
 
 class _BannedPageState extends State<BannedPage> {
   String? banEndDate;
+  Stream<DocumentSnapshot>? salonStream;
 
   @override
   void initState() {
     super.initState();
-    _fetchBanEndDate();
+    _setupSalonStream();
   }
 
-  Future<void> _fetchBanEndDate() async {
-    try {
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        DocumentSnapshot salonDoc = await FirebaseFirestore.instance
-            .collection('salon')
-            .doc(user.uid)
-            .get();
+  void _setupSalonStream() {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      salonStream = FirebaseFirestore.instance
+          .collection('salon')
+          .doc(user.uid)
+          .snapshots();
 
-        if (salonDoc.exists) {
+      salonStream?.listen((snapshot) {
+        if (snapshot.exists) {
           Map<String, dynamic>? salonData =
-              salonDoc.data() as Map<String, dynamic>?;
+              snapshot.data() as Map<String, dynamic>?;
           if (salonData != null && salonData['banEndDate'] != null) {
             setState(() {
               banEndDate = salonData['banEndDate'];
             });
           }
         }
-      }
-    } catch (e) {
-      print('Error fetching ban end date: $e');
+      });
     }
   }
 
