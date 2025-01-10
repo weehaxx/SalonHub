@@ -186,6 +186,52 @@ class _PendingappointmentState extends State<Pendingappointment> {
     }
   }
 
+  // Method to show the confirmation dialog for accepting a booking
+  Future<void> _showAcceptConfirmationDialog(
+      String salonId, String appointmentId) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Confirm Booking',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Are you sure you want to accept this booking?',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: Colors.grey),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(false); // Return false
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: Text(
+                'Confirm',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(true); // Return true
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _acceptAppointment(salonId, appointmentId);
+    }
+  }
+
   void _showBanPromptDialog() {
     showDialog<void>(
       context: context,
@@ -316,75 +362,163 @@ class _PendingappointmentState extends State<Pendingappointment> {
       'Other reasons',
     ];
 
+    TextEditingController customReasonController = TextEditingController();
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Decline Appointment',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Please select a reason for declining this appointment:',
-                style: GoogleFonts.poppins(),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: selectedReason,
-                items: predefinedReasons
-                    .map((reason) => DropdownMenuItem<String>(
-                          value: reason,
-                          child: Text(reason),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedReason = value;
-                  });
-                },
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Select a reason',
+              title: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Decline Appointment',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select a reason for declining the appointment:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: selectedReason,
+                      items: predefinedReasons
+                          .map(
+                            (reason) => DropdownMenuItem<String>(
+                              value: reason,
+                              child: Text(
+                                reason,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedReason = value;
+                          if (value != 'Other reasons') {
+                            customReasonController.clear();
+                          }
+                        });
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Reason',
+                        labelStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade200,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    if (selectedReason == 'Other reasons') ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Provide details:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      TextField(
+                        controller: customReasonController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Enter reason...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey.shade400,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade200,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(color: Colors.grey),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text(
-                'Decline',
-                style: GoogleFonts.poppins(color: Colors.white),
-              ),
-              onPressed: () {
-                if (selectedReason != null && selectedReason!.isNotEmpty) {
-                  _declineAppointmentWithReason(
-                      _user!.uid, appointmentId, selectedReason!);
-                  Navigator.of(context).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please select a reason to decline.'),
-                      backgroundColor: Colors.red,
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey,
                     ),
-                  );
-                }
-              },
-            ),
-          ],
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (selectedReason != null &&
+                        (selectedReason != 'Other reasons' ||
+                            customReasonController.text.isNotEmpty)) {
+                      final reason = selectedReason == 'Other reasons'
+                          ? customReasonController.text
+                          : selectedReason!;
+                      _declineAppointmentWithReason(
+                          _user!.uid, appointmentId, reason); // Pass the reason
+                      Navigator.of(context).pop();
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please select or enter a reason to decline.',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    'Decline',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -490,100 +624,181 @@ class _PendingappointmentState extends State<Pendingappointment> {
                     final userName = userSnapshot.data ?? 'Unknown User';
 
                     return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      elevation: 5,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(15.0),
+                      elevation: 6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border:
+                              Border.all(color: Colors.grey.shade300, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 2,
+                              blurRadius: 6,
+                              offset: const Offset(0, 3), // Shadow position
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Services
-                            Text(
-                              'Services: ${appointment['services']?.join(', ') ?? 'No service'}',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-
-                            // Main Category (Male or Female)
-                            Text(
-                              'Category: ${appointment['main_category'] ?? 'No category selected'}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blueAccent,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-
-                            // Date, Time, and Stylist
-                            Text(
-                              '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              'Total Price: Php ${appointment['totalPrice']?.toString() ?? 'No Price'}',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-
-                            // User Name
-                            Text(
-                              'Set by: $userName',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                            const SizedBox(height: 15),
-
-                            // Accept and Decline Buttons
+                            // Header: Service Name and Category
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                ElevatedButton(
+                                Expanded(
+                                  child: Text(
+                                    'Services: ${appointment['services']?.join(', ') ?? 'No service'}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    appointment['main_category'] ??
+                                        'No category',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blueAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Appointment Details
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${appointment['date']} at ${appointment['time']}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Icon(Icons.person,
+                                    size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Stylist: ${appointment['stylist'] ?? 'No stylist'}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Icon(Icons.attach_money,
+                                    size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Total Price: Php ${appointment['totalPrice']?.toString() ?? 'No Price'}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Icon(Icons.account_circle,
+                                    size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Set by: $userName',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20, color: Colors.grey),
+
+                            // Action Buttons
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                ElevatedButton.icon(
                                   onPressed: () {
-                                    _acceptAppointment(
+                                    _showAcceptConfirmationDialog(
                                         _user!.uid, appointmentId);
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  child: Text(
+                                  icon: const Icon(Icons.check,
+                                      size: 20, color: Colors.white),
+                                  label: Text(
                                     'Accept',
                                     style: GoogleFonts.poppins(
+                                      fontSize: 14,
                                       color: Colors.white,
                                     ),
                                   ),
                                 ),
-                                ElevatedButton(
+                                ElevatedButton.icon(
                                   onPressed: () {
                                     _showDeclineReasonDialog(appointmentId);
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.red,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  child: Text(
+                                  icon: const Icon(Icons.cancel,
+                                      size: 20, color: Colors.white),
+                                  label: Text(
                                     'Decline',
                                     style: GoogleFonts.poppins(
+                                      fontSize: 14,
                                       color: Colors.white,
                                     ),
                                   ),

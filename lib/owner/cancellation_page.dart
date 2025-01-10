@@ -85,73 +85,164 @@ class _CancellationPageState extends State<CancellationPage> {
                       var data = doc.data() as Map<String, dynamic>;
                       return Card(
                         margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                            horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: ListTile(
-                          title: Text(
-                            'Client: ${data['userName'] ?? 'Unknown'}',
-                            style: GoogleFonts.abel(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                        elevation: 6,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.red.shade200, width: 1),
                           ),
-                          subtitle: Column(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Header: Client Name and Delete Button
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Client: ${data['userName'] ?? 'Unknown'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade800,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () async {
+                                      final confirmed =
+                                          await _showDeleteConfirmationDialog();
+                                      if (confirmed == true) {
+                                        _removeAppointment(_user!.uid, doc.id);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Category: ${data['main_category'] ?? 'Unknown'}', // Display main_category
-                                style: GoogleFonts.abel(
-                                  fontSize: 14,
-                                  color: Colors.blueAccent,
-                                  fontWeight: FontWeight.w600,
-                                ),
+
+                              // Appointment Details
+                              Row(
+                                children: [
+                                  const Icon(Icons.category,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Category: ${data['main_category'] ?? 'Unknown'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Service: ${data['services'][0] ?? 'No service provided'}',
-                                style: GoogleFonts.abel(),
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  const Icon(Icons.design_services,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Service: ${data['services'][0] ?? 'No service provided'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Stylist: ${data['stylist'] ?? 'Unknown'}',
-                                style: GoogleFonts.abel(),
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  const Icon(Icons.person,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Stylist: ${data['stylist'] ?? 'Unknown'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                'Price: Php ${data['totalPrice']?.toString() ?? 'N/A'}',
-                                style: GoogleFonts.abel(),
+                              const Divider(color: Colors.red, height: 20),
+
+                              // Pricing and Cancellation Details
+                              Row(
+                                children: [
+                                  const Icon(Icons.attach_money,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Price: Php ${data['totalPrice']?.toString() ?? 'N/A'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Cancelled Date: ${data['date'] ?? 'No date provided'}',
-                                style: GoogleFonts.abel(),
-                              ),
-                              Text(
-                                'Cancelled Time: ${data['time'] ?? 'No time provided'}',
-                                style: GoogleFonts.abel(),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Cancelled On: ${data['date'] ?? 'No date provided'} at ${data['time'] ?? 'No time provided'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        color: Colors.red.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 8),
-                              // Display the reason for cancellation
-                              Text(
-                                'Reason: ${data['declineReason'] ?? data['cancelReason'] ?? 'No reason provided'}',
-                                style: GoogleFonts.abel(
-                                  fontSize: 14,
-                                  color: Colors.redAccent,
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FontStyle.italic,
-                                ),
+
+                              // Cancellation Reason
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.info,
+                                      size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Reason: ${data['declineReason'] ?? data['cancelReason'] ?? 'No reason provided'}',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              final confirmed =
-                                  await _showDeleteConfirmationDialog();
-                              if (confirmed == true) {
-                                _removeAppointment(_user!.uid, doc.id);
-                              }
-                            },
                           ),
                         ),
                       );

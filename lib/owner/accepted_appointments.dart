@@ -276,103 +276,185 @@ class _AcceptedappointmentState extends State<Acceptedappointment> {
 
                           return Card(
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            elevation: 5,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(15.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Services
-                                  Text(
-                                    servicesText,
-                                    style: GoogleFonts.abel(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-
-                                  // Main Category
-                                  Text(
-                                    'Category: $mainCategory',
-                                    style: GoogleFonts.abel(
-                                      fontSize: 14,
-                                      color: Colors.blueAccent,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-
-                                  // Date, Time, and Stylist
-                                  Text(
-                                    '${appointment['date']} at ${appointment['time']} with ${appointment['stylist']}',
-                                    style: GoogleFonts.abel(
-                                      fontSize: 14,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-
-                                  // User Name
-                                  Text(
-                                    'Set by: $userName',
-                                    style: GoogleFonts.abel(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-
-                                  // Total Price
-                                  Text(
-                                    'Total Price: Php ${appointment['totalPrice']}',
-                                    style: GoogleFonts.abel(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-
-                                  // Payment Status
-                                  Text(
-                                    'Payment Status: $paymentStatus',
-                                    style: GoogleFonts.abel(
-                                      fontSize: 14,
-                                      color: isPaid ? Colors.green : Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 15),
-
-                                  // Receipt Button
-                                  if (isPaid)
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        _showReceiptDetails(
-                                          appointment['receipt_url'] ?? '',
-                                          appointment['reference_number'] ??
-                                              'N/A',
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                            elevation: 8,
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: Colors.green.shade300, width: 1),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Header: Service Name
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            servicesText,
+                                            style: GoogleFonts.abel(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: Colors.green.shade800,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        'See Details',
-                                        style: GoogleFonts.abel(
-                                          color: Colors.white,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isPaid
+                                                ? Colors.green.shade300
+                                                : Colors.red.shade300,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            paymentStatus,
+                                            style: GoogleFonts.abel(
+                                              fontSize: 12,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+
+                                    // Main Category
+                                    Text(
+                                      'Category: $mainCategory',
+                                      style: GoogleFonts.abel(
+                                        fontSize: 14,
+                                        color: Colors.green.shade700,
                                       ),
                                     ),
-                                ],
+                                    const SizedBox(height: 10),
+
+                                    // Appointment Details
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.calendar_today,
+                                            size: 16, color: Colors.green),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '${appointment['date']} at ${appointment['time']}',
+                                            style: GoogleFonts.abel(
+                                              fontSize: 14,
+                                              color: Colors.green.shade600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person,
+                                            size: 16, color: Colors.green),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Stylist: ${appointment['stylist']}',
+                                            style: GoogleFonts.abel(
+                                              fontSize: 14,
+                                              color: Colors.green.shade600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person_outline,
+                                            size: 16, color: Colors.green),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Set by: $userName',
+                                            style: GoogleFonts.abel(
+                                              fontSize: 14,
+                                              color: Colors.green.shade600,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(
+                                        color: Colors.green, height: 20),
+
+                                    // Total Price
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.attach_money,
+                                            size: 16, color: Colors.green),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Total Price: Php ${appointment['totalPrice']}',
+                                            style: GoogleFonts.abel(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green.shade800,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 15),
+
+                                    // Receipt Button
+                                    if (isPaid)
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () {
+                                            _showReceiptDetails(
+                                              appointment['receipt_url'] ?? '',
+                                              appointment['reference_number'] ??
+                                                  'N/A',
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.green.shade600,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 10),
+                                          ),
+                                          icon: const Icon(Icons.receipt,
+                                              size: 20, color: Colors.white),
+                                          label: Text(
+                                            'View Receipt',
+                                            style: GoogleFonts.abel(
+                                              fontSize: 14,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           );
