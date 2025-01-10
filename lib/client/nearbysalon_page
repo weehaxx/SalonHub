@@ -21,7 +21,87 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
   @override
   void initState() {
     super.initState();
+    _checkLocationPermissions();
+  }
+
+  Future<void> _checkLocationPermissions() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled
+      bool? enableLocation = await _showEnableLocationDialog();
+      if (enableLocation == true) {
+        Geolocator.openLocationSettings();
+      }
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showErrorDialog('Location permission is required to fetch nearby salons.');
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Location permissions are permanently denied
+      _showErrorDialog(
+          'Location permissions are permanently denied. Please enable them in your device settings.');
+      return;
+    }
+
+    // If permissions are granted, fetch nearby salons
     _fetchNearbySalons();
+  }
+
+  Future<bool?> _showEnableLocationDialog() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Enable Location Services'),
+          content: const Text(
+              'Location services are disabled. Would you like to turn them on to find nearby salons?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Turn On'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showErrorDialog(String message) async {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _fetchNearbySalons() async {
