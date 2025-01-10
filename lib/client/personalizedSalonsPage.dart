@@ -107,9 +107,47 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             ? totalSalonRating / reviewsSnapshot.docs.length
             : 0;
 
-        // Check if the salon matches user's preferred rating
+        // Fetch services and check if at least one matches the preferred services with a valid rating
+        final servicesSnapshot =
+            await salonDoc.reference.collection('services').get();
+
+        bool hasMatchingPreferredService = false;
+
+        for (final serviceDoc in servicesSnapshot.docs) {
+          final serviceData = serviceDoc.data();
+          final String serviceName = serviceData['name'] ?? '';
+          final String mainCategory = serviceData['main_category'] ?? '';
+
+          if (preferredServices.contains(serviceName) &&
+              (preferredGender == null || preferredGender == mainCategory)) {
+            // Calculate the average rating of the service
+            final serviceReviewsSnapshot = await salonDoc.reference
+                .collection('reviews')
+                .where('serviceId', isEqualTo: serviceDoc.id)
+                .get();
+
+            double totalServiceRating = 0;
+            for (final review in serviceReviewsSnapshot.docs) {
+              totalServiceRating += (review['rating'] ?? 0).toDouble();
+            }
+            final double averageServiceRating =
+                serviceReviewsSnapshot.docs.isNotEmpty
+                    ? totalServiceRating / serviceReviewsSnapshot.docs.length
+                    : 0;
+
+            // Check if the average service rating meets the user's preference
+            if (averageServiceRating >= preferredServiceRating &&
+                averageServiceRating < (preferredServiceRating + 1)) {
+              hasMatchingPreferredService = true;
+              break;
+            }
+          }
+        }
+
+        // Check if the salon matches user's preferred rating and has a matching service
         if (salonRating >= preferredSalonRating &&
-            salonRating < (preferredSalonRating + 1)) {
+            salonRating < (preferredSalonRating + 1) &&
+            hasMatchingPreferredService) {
           final salonInfo = {
             'salon_id': salonId,
             'salon_name': salonData['salon_name'] ?? 'Unknown Salon',

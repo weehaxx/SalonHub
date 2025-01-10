@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:salon_hub/client/components/full_map_page.dart';
 import 'package:salon_hub/client/salonDetails_client.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
 
 class NearbySalonContainer extends StatelessWidget {
   final String salonId;
-  final double rating; // Include the rating parameter
+  final double rating;
   final Map<String, dynamic> salon;
   final String userId;
+  final LatLng userLocation;
   final double? distance;
 
   const NearbySalonContainer({
     required Key key,
     required this.salonId,
-    required this.rating, // Include the rating parameter in the constructor
+    required this.rating,
     required this.salon,
     required this.userId,
+    required this.userLocation,
     this.distance,
   }) : super(key: key);
 
@@ -35,39 +33,14 @@ class NearbySalonContainer extends StatelessWidget {
       open = DateTime(now.year, now.month, now.day, open.hour, open.minute);
       close = DateTime(now.year, now.month, now.day, close.hour, close.minute);
 
-      // Handle overnight closing time (e.g., 11:00 PM to 4:00 AM)
       if (close.isBefore(open)) {
-        close = close.add(Duration(days: 1));
+        close = close.add(const Duration(days: 1));
       }
 
       return now.isAfter(open) && now.isBefore(close);
     } catch (e) {
       print('Error parsing open/close time: $e');
       return false;
-    }
-  }
-
-  Future<double> _fetchAverageRating() async {
-    try {
-      final reviewsSnapshot = await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(salonId)
-          .collection('reviews')
-          .get();
-
-      if (reviewsSnapshot.docs.isEmpty) {
-        return 0.0; // No reviews, so rating is 0
-      }
-
-      double totalRating = 0.0;
-      for (var doc in reviewsSnapshot.docs) {
-        totalRating += (doc['rating'] ?? 0).toDouble();
-      }
-
-      return totalRating / reviewsSnapshot.docs.length;
-    } catch (e) {
-      print('Error fetching average rating: $e');
-      return 0.0;
     }
   }
 
@@ -78,7 +51,7 @@ class NearbySalonContainer extends StatelessWidget {
     final openTime = salon['open_time']?.toString() ?? '9:00 AM';
     final closeTime = salon['close_time']?.toString() ?? '9:00 PM';
     final imageUrl = salon['image_url']?.toString();
-    final double? distanceKm = distance;
+    final distanceKm = distance?.toStringAsFixed(2) ?? 'Unknown';
 
     final isOpen = _isSalonOpen(openTime, closeTime);
 
@@ -211,7 +184,7 @@ class NearbySalonContainer extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        '${distanceKm.toStringAsFixed(2)} km away',
+                        '$distanceKm km away',
                         style: GoogleFonts.abel(
                           textStyle: const TextStyle(
                             color: Colors.black54,
@@ -222,52 +195,79 @@ class NearbySalonContainer extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SalondetailsClient(
-                            salonId: salonId,
-                            salonName: salonName,
-                            address: salonAddress,
-                            services: salon['services'] ?? [],
-                            stylists: salon['stylists'] ?? [],
-                            openTime: openTime,
-                            closeTime: closeTime,
-                            userId: userId,
-                          ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.location_pin,
+                          color: Color(0xff355E3B),
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff355E3B),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.remove_red_eye,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'SEE DETAILS',
-                          style: GoogleFonts.abel(
-                            textStyle: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FullMapPage(
+                                userLocation: userLocation,
+                                salonLocation: LatLng(
+                                  salon['latitude'],
+                                  salon['longitude'],
+                                ),
+                                salonName: salonName,
+                              ),
                             ),
+                          );
+                        },
+                      ),
+                      Flexible(
+                          child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SalondetailsClient(
+                                salonId: salonId,
+                                salonName: salonName,
+                                address: salonAddress,
+                                services: salon['services'] ?? [],
+                                stylists: salon['stylists'] ?? [],
+                                openTime: openTime,
+                                closeTime: closeTime,
+                                userId: userId,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff355E3B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.remove_red_eye,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'SEE DETAILS',
+                              style: GoogleFonts.abel(
+                                textStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
                   ),
                 ],
               ),

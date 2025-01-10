@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:salon_hub/client/components/nearby_salon_container.dart';
 
@@ -23,122 +25,103 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
   }
 
   Future<void> _fetchNearbySalons() async {
-  setState(() {
-    _isLoading = true;
-  });
+    setState(() {
+      _isLoading = true;
+    });
 
-  const double maxDistance = 5.0; // Maximum distance in kilometers
+    const double maxDistance = 5.0; // Maximum distance in kilometers
 
-  try {
-    // Fetch user's current location
-    Position userLocation = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    // Fetch salons from Firestore
-    QuerySnapshot salonSnapshot =
-        await FirebaseFirestore.instance.collection('salon').get();
-
-    List<Map<String, dynamic>> nearbySalons = [];
-
-    for (var doc in salonSnapshot.docs) {
-      final salonData = doc.data() as Map<String, dynamic>;
-      final String salonId = doc.id;
-
-      // Skip banned salons
-      if (salonData['isBanned'] == true) {
-        continue;
-      }
-
-      // Skip salons with missing location data
-      if (salonData['latitude'] == null || salonData['longitude'] == null) {
-        print('Skipping salon due to missing location data: $salonId');
-        continue;
-      }
-
-      // Calculate distance
-      double distance = _calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        salonData['latitude'],
-        salonData['longitude'],
+    try {
+      // Fetch user's current location
+      Position userPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Skip salons outside the max distance
-      if (distance > maxDistance) {
-        continue;
+      // Convert to LatLng
+      LatLng userLocation = LatLng(userPosition.latitude, userPosition.longitude);
+
+      // Fetch salons from Firestore
+      QuerySnapshot salonSnapshot =
+          await FirebaseFirestore.instance.collection('salon').get();
+
+      List<Map<String, dynamic>> nearbySalons = [];
+
+      for (var doc in salonSnapshot.docs) {
+        final salonData = doc.data() as Map<String, dynamic>;
+        final String salonId = doc.id;
+
+        // Skip banned salons
+        if (salonData['isBanned'] == true) {
+          continue;
+        }
+
+        // Skip salons with missing location data
+        if (salonData['latitude'] == null || salonData['longitude'] == null) {
+          print('Skipping salon due to missing location data: $salonId');
+          continue;
+        }
+
+        // Calculate distance
+        double distance = _calculateDistance(
+          userPosition.latitude,
+          userPosition.longitude,
+          salonData['latitude'],
+          salonData['longitude'],
+        );
+
+        // Skip salons outside the max distance
+        if (distance > maxDistance) {
+          continue;
+        }
+
+        // Fetch reviews to calculate average rating
+        QuerySnapshot reviewSnapshot = await FirebaseFirestore.instance
+            .collection('salon')
+            .doc(salonId)
+            .collection('reviews')
+            .get();
+
+        double totalRating = 0.0;
+        int reviewCount = reviewSnapshot.docs.length;
+
+        for (var reviewDoc in reviewSnapshot.docs) {
+          totalRating += (reviewDoc['rating'] ?? 0).toDouble();
+        }
+
+        double averageRating = reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+        nearbySalons.add({
+          'salon_id': salonId,
+          'salon_name': salonData['salon_name'] ?? 'Unnamed Salon',
+          'address': salonData['address'] ?? 'No Address Available',
+          'latitude': salonData['latitude'],
+          'longitude': salonData['longitude'],
+          'image_url': salonData['image_url'],
+          'rating': averageRating,
+          'open_time': salonData['open_time'] ?? 'Unknown',
+          'close_time': salonData['close_time'] ?? 'Unknown',
+          'distance': distance,
+        });
       }
 
-      // Fetch reviews to calculate average rating
-      QuerySnapshot reviewSnapshot = await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(salonId)
-          .collection('reviews')
-          .get();
+      // Sort salons by distance
+      nearbySalons.sort((a, b) => a['distance'].compareTo(b['distance']));
 
-      double totalRating = 0.0;
-      int reviewCount = reviewSnapshot.docs.length;
+      if (!mounted) return;
 
-      for (var reviewDoc in reviewSnapshot.docs) {
-        totalRating += (reviewDoc['rating'] ?? 0).toDouble();
-      }
+      setState(() {
+        _nearbySalons = nearbySalons;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error fetching nearby salons: $e");
+      if (!mounted) return;
 
-      double averageRating = reviewCount > 0 ? totalRating / reviewCount : 0.0;
-
-      // Fetch stylists
-      QuerySnapshot stylistSnapshot = await FirebaseFirestore.instance
-          .collection('salon')
-          .doc(salonId)
-          .collection('stylists')
-          .get();
-
-      List<Map<String, dynamic>> stylists = stylistSnapshot.docs.map((doc) {
-        final stylistData = doc.data() as Map<String, dynamic>;
-        return {
-          'name': stylistData['name'],
-          'specialization': stylistData['specialization'],
-          'status': stylistData['status'],
-          'categories': stylistData['categories'],
-        };
-      }).toList();
-
-      nearbySalons.add({
-        'salon_id': salonId,
-        'salon_name': salonData['salon_name'] ?? 'Unnamed Salon',
-        'address': salonData['address'] ?? 'No Address Available',
-        'latitude': salonData['latitude'],
-        'longitude': salonData['longitude'],
-        'image_url': salonData['image_url'],
-        'rating': averageRating,
-        'open_time': salonData['open_time'] ?? 'Unknown',
-        'close_time': salonData['close_time'] ?? 'Unknown',
-        'status': salonData['status'] ?? 'Unknown',
-        'distance': distance,
-        'stylists': stylists, // Include stylists
+      setState(() {
+        _isLoading = false;
       });
     }
-
-    // Sort salons by distance
-    nearbySalons.sort((a, b) => a['distance'].compareTo(b['distance']));
-
-    if (!mounted) return;
-
-    setState(() {
-      _nearbySalons = nearbySalons;
-      _isLoading = false;
-    });
-  } catch (e) {
-    print("Error fetching nearby salons: $e");
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = false;
-    });
   }
-}
-
-
-
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
@@ -180,7 +163,11 @@ class _NearbySalonsPageState extends State<NearbySalonsPage> {
                         salonId: salon['salon_id'],
                         rating: rating,
                         salon: salon,
-                        userId: 'sample_user_id', // Replace with real user ID
+                        userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                        userLocation: LatLng(
+                          salon['latitude'],
+                          salon['longitude'],
+                        ),
                         distance: distance,
                       ),
                     );
