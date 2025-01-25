@@ -11,6 +11,7 @@ class SalonInformationForm extends StatefulWidget {
   final TextEditingController addressController;
   final TextEditingController openTimeController;
   final TextEditingController closeTimeController;
+  final TextEditingController salonSpecializationController;
 
   final Function(double?, double?) onLocationSelected;
 
@@ -18,6 +19,7 @@ class SalonInformationForm extends StatefulWidget {
     super.key,
     required this.salonNameController,
     required this.salonOwnerController,
+    required this.salonSpecializationController, // Add here
     required this.addressController,
     required this.openTimeController,
     required this.closeTimeController,
@@ -63,6 +65,8 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
           if (mounted) {
             setState(() {
               widget.salonNameController.text = data['salon_name'] ?? '';
+              widget.salonSpecializationController.text =
+                  data['specialization'] ?? '';
               widget.salonOwnerController.text = data['owner_name'] ?? '';
               widget.addressController.text = data['address'] ?? '';
               widget.openTimeController.text = data['open_time'] ?? '';
@@ -220,7 +224,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
         throw Exception('User is not logged in.');
       }
 
-      // Ensure latitude and longitude are valid
+      // Extract latitude and longitude from the selected location
       final double latitude = _selectedLocation!.latitude;
       final double longitude = _selectedLocation!.longitude;
 
@@ -228,49 +232,61 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
         throw Exception('Invalid location coordinates.');
       }
 
-      final userDocRef =
-          FirebaseFirestore.instance.collection('salon').doc(currentUser.uid);
+      // Collect additional details from the form
+      final String address = widget.addressController.text.trim();
+      final String openTime = widget.openTimeController.text.trim();
+      final String closeTime = widget.closeTimeController.text.trim();
+      final String specialization =
+          widget.salonSpecializationController.text.trim();
 
-      // Collect the additional details
-      String address = widget.addressController.text.trim();
-      String openTime = widget.openTimeController.text.trim();
-      String closeTime = widget.closeTimeController.text.trim();
-
-      // Ensure required fields are not empty
-      if (address.isEmpty || openTime.isEmpty || closeTime.isEmpty) {
-        throw Exception(
-            'Address, opening time, and closing time must not be empty.');
+      // Validate required fields
+      if (specialization.isEmpty ||
+          address.isEmpty ||
+          openTime.isEmpty ||
+          closeTime.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Specialization, address, opening time, and closing time must not be empty.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
       }
 
-      // Check if the document exists
-      final userDocSnapshot = await userDocRef.get();
+      final DocumentReference userDocRef =
+          FirebaseFirestore.instance.collection('salon').doc(currentUser.uid);
+
+      // Prepare the data payload
+      final Map<String, dynamic> salonData = {
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
+        'open_time': openTime,
+        'close_time': closeTime,
+        'specialization': specialization,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Check if the salon document already exists
+      final DocumentSnapshot userDocSnapshot = await userDocRef.get();
       if (!userDocSnapshot.exists) {
-        // Create the document if it does not exist
-        await userDocRef.set({
-          'latitude': latitude,
-          'longitude': longitude,
-          'address': address,
-          'open_time': openTime,
-          'close_time': closeTime,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        // Add 'createdAt' for new documents
+        salonData['createdAt'] = FieldValue.serverTimestamp();
+
+        // Create the new document
+        await userDocRef.set(salonData);
         print('Document created for user: ${currentUser.uid}');
       } else {
-        // Update the document if it exists
-        await userDocRef.update({
-          'latitude': latitude,
-          'longitude': longitude,
-          'address': address,
-          'open_time': openTime,
-          'close_time': closeTime,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        // Update the existing document
+        await userDocRef.update(salonData);
         print('Document updated for user: ${currentUser.uid}');
       }
 
+      // Call the callback to update the parent widget with the new location
       widget.onLocationSelected(latitude, longitude);
 
-      // Show a success message after saving
+      // Display success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Location and details successfully saved!'),
@@ -278,11 +294,7 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
         ),
       );
 
-      // Update map marker and camera position
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
-      );
-
+      // Update the map with the new marker
       setState(() {
         _markers.clear();
         _markers.add(Marker(
@@ -297,6 +309,11 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
           infoWindow: const InfoWindow(title: 'Submitted Location'),
         ));
       });
+
+      // Adjust the camera position to focus on the selected location
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_selectedLocation!, 14.0),
+      );
     } catch (e) {
       print('Error submitting location: $e');
 
@@ -337,6 +354,11 @@ class _SalonInformationFormState extends State<SalonInformationForm> {
                         const SizedBox(height: 20),
                         _buildTextField(
                             'Salon Name', widget.salonNameController, true),
+                        _buildTextField(
+                          'Salon Specialization', // Label
+                          widget.salonSpecializationController, // Controller
+                          false, // Not read-only
+                        ),
                         _buildTextField(
                             'Salon Owner', widget.salonOwnerController, true),
                         _buildTimePickerField(

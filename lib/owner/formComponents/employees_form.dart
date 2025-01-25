@@ -18,6 +18,9 @@ class _EmployeesFormState extends State<EmployeesForm> {
   final TextEditingController _employeeNameController = TextEditingController();
   final TextEditingController _employeeSpecializationController =
       TextEditingController();
+  final TextEditingController _stylistEmailController = TextEditingController();
+  final TextEditingController _stylistPhoneNumberController =
+      TextEditingController();
 
   final List<String> _categories = ['Hair', 'Nail', 'Spa', 'Others'];
   final Set<String> _selectedCategories = {};
@@ -26,6 +29,8 @@ class _EmployeesFormState extends State<EmployeesForm> {
   void _addEmployee() {
     final String employeeName = _employeeNameController.text.trim();
     final String specialization = _employeeSpecializationController.text.trim();
+    final String stylistEmail = _stylistEmailController.text.trim();
+    final String stylistPhoneNumber = _stylistPhoneNumberController.text.trim();
 
     // Check for duplicate employees
     final bool isDuplicateInCurrentSalon = widget.employees.any(
@@ -41,11 +46,13 @@ class _EmployeesFormState extends State<EmployeesForm> {
     // Validate input fields
     if (employeeName.isEmpty ||
         specialization.isEmpty ||
+        stylistEmail.isEmpty ||
+        stylistPhoneNumber.isEmpty ||
         _selectedCategories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Please fill out all employee fields and select at least one category.'),
+              'Please fill out all fields and select at least one category.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -80,12 +87,16 @@ class _EmployeesFormState extends State<EmployeesForm> {
         'name': employeeName,
         'specialization': specialization,
         'categories': _selectedCategories.toList(), // Convert Set to List
+        'email': stylistEmail,
+        'phone_number': stylistPhoneNumber,
         'status': 'Available',
       });
 
       widget.allRegisteredStylistNames.add(employeeName);
       _employeeNameController.clear();
       _employeeSpecializationController.clear();
+      _stylistEmailController.clear();
+      _stylistPhoneNumberController.clear();
       _selectedCategories.clear();
     });
 
@@ -117,6 +128,8 @@ class _EmployeesFormState extends State<EmployeesForm> {
             _buildTextField('Employee Full Name', _employeeNameController),
             _buildTextField(
                 'Specialization', _employeeSpecializationController),
+            _buildTextField('Email Address', _stylistEmailController),
+            _buildTextField('Phone Number', _stylistPhoneNumberController),
             _buildCategorySelector(),
             const SizedBox(height: 15),
             ElevatedButton(
@@ -156,7 +169,7 @@ class _EmployeesFormState extends State<EmployeesForm> {
             ? (employee['categories'] as List).map((e) => e.toString()).toList()
             : (employee['categories'] is String)
                 ? employee['categories']
-                    .split(',')
+                    .split(', ')
                     .map((e) => e.trim())
                     .toList()
                 : [];
@@ -179,7 +192,10 @@ class _EmployeesFormState extends State<EmployeesForm> {
               ),
             ),
             subtitle: Text(
-              'Specialization: ${employee['specialization'] ?? ''}\nCategories: ${categories.join(', ')}',
+              'Specialization: ${employee['specialization'] ?? ''}\n'
+              'Email: ${employee['email'] ?? ''}\n'
+              'Phone Number: ${employee['phone_number'] ?? ''}\n'
+              'Categories: ${categories.join(', ')}',
               style: const TextStyle(
                 color: Colors.black87,
                 height: 1.5,

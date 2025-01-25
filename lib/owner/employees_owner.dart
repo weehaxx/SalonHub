@@ -17,6 +17,10 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   final TextEditingController _stylistNameController = TextEditingController();
   final TextEditingController _stylistSpecializationController =
       TextEditingController();
+  final TextEditingController _stylistPhoneNumberController =
+      TextEditingController();
+  final TextEditingController _stylistEmailController = TextEditingController();
+
   String _stylistStatus = 'Available';
   final Set<String> _stylistCategories = {};
   bool _isFormVisible = false;
@@ -162,7 +166,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   }
 
   Future<void> _addStylist() async {
-    final stylistName = _stylistNameController.text.trim().toLowerCase();
+    final stylistName = _stylistNameController.text.trim();
 
     if (stylistName.isEmpty || _stylistSpecializationController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -175,8 +179,8 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
     }
 
     // Check for duplicates in the current salon
-    if (stylists
-        .any((stylist) => stylist['name'].toLowerCase() == stylistName)) {
+    if (stylists.any((stylist) =>
+        stylist['name'].toLowerCase() == stylistName.toLowerCase())) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Stylist "$stylistName" already exists in this salon!'),
@@ -188,7 +192,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
 
     // Check for duplicates globally
     if (allRegisteredStylistNames
-        .any((name) => name.toLowerCase() == stylistName)) {
+        .any((name) => name.toLowerCase() == stylistName.toLowerCase())) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -206,6 +210,8 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
       'specialization': _stylistSpecializationController.text.trim(),
       'status': _stylistStatus,
       'categories': _stylistCategories.toList(),
+      'phone_number': _stylistPhoneNumberController.text.trim(),
+      'email': _stylistEmailController.text.trim(),
     };
 
     if (salonDocId != null) {
@@ -227,8 +233,11 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
         ),
       );
 
+      // Clear the form fields and reset variables
       _stylistNameController.clear();
       _stylistSpecializationController.clear();
+      _stylistPhoneNumberController.clear();
+      _stylistEmailController.clear();
       _stylistStatus = 'Available';
       _stylistCategories.clear();
 
@@ -261,6 +270,8 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
 
   void _editStylist(Map<String, dynamic> stylist) {
     _stylistNameController.text = stylist['name'] ?? '';
+    _stylistPhoneNumberController.text = stylist['phone_number'] ?? '';
+    _stylistEmailController.text = stylist['email'] ?? '';
     _stylistSpecializationController.text = stylist['specialization'] ?? '';
     _stylistStatus = stylist['status'] ?? 'Available';
     _stylistCategories.clear();
@@ -275,15 +286,28 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Edit Stylist', style: GoogleFonts.abel()),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return SizedBox(
-                height: 400,
-                width: 300,
+        final mediaQuery = MediaQuery.of(context);
+
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: mediaQuery.size.height * 0.8,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      'Edit Stylist',
+                      style: GoogleFonts.abel(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _stylistNameController,
                       decoration: InputDecoration(
@@ -292,7 +316,25 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                         border: const OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _stylistPhoneNumberController,
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number',
+                        labelStyle: GoogleFonts.abel(),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _stylistEmailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        labelStyle: GoogleFonts.abel(),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _stylistSpecializationController,
                       decoration: InputDecoration(
@@ -301,7 +343,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                         border: const OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
                       children: categories.map((category) {
@@ -320,71 +362,50 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            if (_stylistNameController.text.trim().isEmpty ||
+                                _stylistSpecializationController.text.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please fill out all fields.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            await _updateStylist(stylist['id'], {
+                              'name': _stylistNameController.text.trim(),
+                              'specialization':
+                                  _stylistSpecializationController.text.trim(),
+                              'status': _stylistStatus,
+                              'categories': _stylistCategories.toList(),
+                              'phone_number':
+                                  _stylistPhoneNumberController.text,
+                              'email': _stylistEmailController.text,
+                            });
+
+                            Navigator.of(context).pop();
+                            await _retrieveStylists(); // Refresh data
+                          },
+                          child: Text('Save', style: GoogleFonts.abel()),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Cancel', style: GoogleFonts.abel()),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final newName =
-                    _stylistNameController.text.trim().toLowerCase();
-                if (newName.isEmpty ||
-                    _stylistSpecializationController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill out all fields.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                // Check for local duplicates (excluding current stylist)
-                if (stylists.any((s) =>
-                    s['name'].toLowerCase() == newName &&
-                    s['id'] != stylist['id'])) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Stylist "$newName" already exists!'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                // Check for global duplicates
-                if (allRegisteredStylistNames.any((name) =>
-                    name.toLowerCase() == newName && name != stylist['name'])) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Stylist "$newName" is already registered in another salon!',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                await _updateStylist(stylist['id'], {
-                  'name': newName,
-                  'specialization': _stylistSpecializationController.text,
-                  'status': _stylistStatus,
-                  'categories': _stylistCategories.toList(),
-                });
-
-                Navigator.of(context).pop();
-                await _retrieveStylists(); // Refresh data
-              },
-              child: Text('Save', style: GoogleFonts.abel()),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: GoogleFonts.abel()),
-            ),
-          ],
         );
       },
     );
@@ -412,6 +433,7 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text('Stylists', style: GoogleFonts.abel()),
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
@@ -459,118 +481,160 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
   }
 
   Widget _buildAddStylistForm() {
-    return Card(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final mediaQuery = MediaQuery.of(context);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Card(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          elevation: 3,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Add Stylist',
-                  style: GoogleFonts.abel(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Add Stylist',
+                      style: GoogleFonts.abel(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _isFormVisible = false;
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
+                const SizedBox(height: 10),
+                // Stylist Name Field
+                TextField(
+                  controller: _stylistNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Stylist Name',
+                    labelStyle: GoogleFonts.abel(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Phone Number Field
+                TextField(
+                  controller: _stylistPhoneNumberController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    labelStyle: GoogleFonts.abel(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Email Field
+                TextField(
+                  controller: _stylistEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: GoogleFonts.abel(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Specialization Field
+                TextField(
+                  controller: _stylistSpecializationController,
+                  decoration: InputDecoration(
+                    labelText: 'Specialization',
+                    labelStyle: GoogleFonts.abel(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Status Dropdown
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    labelStyle: GoogleFonts.abel(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                  value: _stylistStatus,
+                  items: <String>['Available', 'Unavailable']
+                      .map((String value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value, style: GoogleFonts.abel()),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
                     setState(() {
-                      _isFormVisible = false;
+                      _stylistStatus = value ?? 'Available';
                     });
                   },
+                ),
+                const SizedBox(height: 16),
+                // Categories
+                Wrap(
+                  spacing: 8,
+                  children: categories.map((category) {
+                    return FilterChip(
+                      label: Text(category, style: GoogleFonts.abel()),
+                      selected: _stylistCategories.contains(category),
+                      onSelected: (isSelected) {
+                        setState(() {
+                          isSelected
+                              ? _stylistCategories.add(category)
+                              : _stylistCategories.remove(category);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                // Add Stylist Button
+                Center(
+                  child: ElevatedButton(
+                    onPressed: _addStylist,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff355E3B),
+                      minimumSize: const Size.fromHeight(45),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text('Add Stylist',
+                        style: GoogleFonts.abel(color: Colors.white)),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _stylistNameController,
-              decoration: InputDecoration(
-                labelText: 'Stylist Name',
-                labelStyle: GoogleFonts.abel(),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _stylistSpecializationController,
-              decoration: InputDecoration(
-                labelText: 'Specialization',
-                labelStyle: GoogleFonts.abel(),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: 'Status',
-                labelStyle: GoogleFonts.abel(),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-              value: _stylistStatus,
-              items: <String>['Available', 'Unavailable']
-                  .map((String value) => DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: GoogleFonts.abel()),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _stylistStatus = value ?? 'Available';
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: categories.map((category) {
-                return FilterChip(
-                  label: Text(category, style: GoogleFonts.abel()),
-                  selected: _stylistCategories.contains(category),
-                  onSelected: (isSelected) {
-                    setState(() {
-                      isSelected
-                          ? _stylistCategories.add(category)
-                          : _stylistCategories.remove(category);
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: ElevatedButton(
-                onPressed: _addStylist,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff355E3B),
-                  minimumSize: const Size.fromHeight(45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text('Add Stylist',
-                    style: GoogleFonts.abel(color: Colors.white)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -604,6 +668,14 @@ class _EmployeesOwnerState extends State<EmployeesOwner> {
               stylist['name'] ?? 'N/A',
               style:
                   GoogleFonts.abel(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Phone Number: ${stylist['phone_number'] ?? 'N/A'}',
+              style: GoogleFonts.abel(),
+            ),
+            Text(
+              'Email: ${stylist['email'] ?? 'N/A'}',
+              style: GoogleFonts.abel(),
             ),
             Text(
               'Categories: ${_formatCategories(stylist['categories'])}',

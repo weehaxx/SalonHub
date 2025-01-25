@@ -33,6 +33,8 @@ class _FormOwnerState extends State<FormOwner> {
   // Updated to allow dynamic types
   final List<Map<String, dynamic>> _employees = [];
   final List<String> _allRegisteredStylistNames = [];
+  final TextEditingController _salonSpecializationController =
+      TextEditingController();
 
   final TextEditingController _salonNameController = TextEditingController();
   final TextEditingController _salonOwnerController = TextEditingController();
@@ -108,6 +110,8 @@ class _FormOwnerState extends State<FormOwner> {
                         key: UniqueKey(),
                         salonNameController: _salonNameController,
                         salonOwnerController: _salonOwnerController,
+                        salonSpecializationController:
+                            _salonSpecializationController, // Add this
                         addressController: _addressController,
                         openTimeController: _openTimeController,
                         closeTimeController: _closeTimeController,
@@ -237,6 +241,7 @@ class _FormOwnerState extends State<FormOwner> {
 
       Map<String, dynamic> salonData = {
         'salon_name': _salonNameController.text.trim(),
+        'specialization': _salonSpecializationController.text.trim(),
         'owner_name': _salonOwnerController.text.trim(),
         'address': _addressController.text.trim(),
         'open_time': _openTimeController.text.trim(),
@@ -312,6 +317,7 @@ class _FormOwnerState extends State<FormOwner> {
 
   void _clearForm() {
     _salonNameController.clear();
+    _salonSpecializationController.clear();
     _salonOwnerController.clear();
     _addressController.clear();
     _openTimeController.clear();

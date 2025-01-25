@@ -17,6 +17,8 @@ class EditSalonInfo extends StatefulWidget {
 class _EditSalonInfoState extends State<EditSalonInfo> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _salonNameController;
+  late TextEditingController _specializationController;
+
   late TextEditingController _ownerNameController;
   late TextEditingController _addressController;
   late TimeOfDay _openTime;
@@ -30,11 +32,12 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
   void initState() {
     super.initState();
 
-    // Extract document ID and initialize form fields
     salonDocId = widget.salonData['id'];
     if (salonDocId == null || salonDocId!.isEmpty) {
-      _showError("Invalid salon ID. Please contact support.");
-      return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showError("Invalid salon ID. Please contact support.");
+      });
+      return; // Prevent further initialization if ID is invalid
     }
 
     _salonNameController =
@@ -43,6 +46,8 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
         TextEditingController(text: widget.salonData['owner_name'] ?? '');
     _addressController =
         TextEditingController(text: widget.salonData['address'] ?? '');
+    _specializationController =
+        TextEditingController(text: widget.salonData['specialization'] ?? '');
     _openTime = widget.salonData['open_time'] != null
         ? _convertStringToTimeOfDay(widget.salonData['open_time'])
         : TimeOfDay.now();
@@ -50,7 +55,6 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
         ? _convertStringToTimeOfDay(widget.salonData['close_time'])
         : TimeOfDay.now();
 
-    // Initialize the current and original locations
     _currentLocation = LatLng(
       widget.salonData['latitude'] ?? 0.0,
       widget.salonData['longitude'] ?? 0.0,
@@ -63,6 +67,7 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
     _salonNameController.dispose();
     _ownerNameController.dispose();
     _addressController.dispose();
+    _specializationController.dispose(); // Dispose here
     super.dispose();
   }
 
@@ -105,6 +110,8 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
           'salon_name': _salonNameController.text,
           'owner_name': _ownerNameController.text,
           'address': _addressController.text,
+          'specialization':
+              _specializationController.text, // Include specialization
           'open_time': _formatTimeOfDay(_openTime),
           'close_time': _formatTimeOfDay(_closeTime),
           'latitude': _currentLocation.latitude,
@@ -202,6 +209,9 @@ class _EditSalonInfoState extends State<EditSalonInfo> {
           child: ListView(
             children: [
               _buildEditCard(_salonNameController, 'Salon Name', Icons.store),
+              const SizedBox(height: 20),
+              _buildEditCard(
+                  _specializationController, 'Specialization', Icons.brush),
               const SizedBox(height: 20),
               _buildEditCard(_ownerNameController, 'Owner Name', Icons.person),
               const SizedBox(height: 20),

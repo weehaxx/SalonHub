@@ -82,6 +82,10 @@ class _SaloninfoOwnerState extends State<SaloninfoOwner> {
                       ),
                       _buildInfoCard(salonData!['address'], Icons.location_on),
                       _buildInfoCard(
+                          salonData!['specialization'] ??
+                              'No specialization provided',
+                          Icons.brush), // Added here
+                      _buildInfoCard(
                           salonData!['open_time'], Icons.access_time),
                       _buildInfoCard(
                           salonData!['close_time'], Icons.access_time_filled),
