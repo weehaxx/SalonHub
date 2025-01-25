@@ -50,14 +50,14 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
             'salonId': salonId,
             'salonName': salonDoc['salon_name'] ?? 'Unknown Salon',
             'stylistName': data['stylist'] ?? 'Unknown Stylist',
-            'services': (data['services'] as List<dynamic>)
-                .join(', '), // Join service names
+            'services': (data['services'] as List<dynamic>).join(', '),
             'price': data['totalPrice']?.toString() ?? 'N/A',
             'date': data['date'] ?? 'No date provided',
             'time': data['time'] ?? 'No time provided',
             'status': data['status'] ?? 'No status provided',
             'isPaid': data['isPaid'] ?? false,
             'rescheduled': data['rescheduled'] ?? false,
+            'cancelReason': data['cancelReason'] ?? 'No reason provided',
             'statusColor': _getStatusColor(data['status']),
             'statusTextColor': _getStatusTextColor(data['status']),
             'isAccepted': data['status']?.toLowerCase() == 'accepted',
@@ -147,8 +147,6 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                 itemBuilder: (context, index) {
                   final appointment = _appointments[index];
                   bool isCanceled = appointment['status'] == 'Canceled';
-                  bool isPending = appointment['status'] == 'Pending';
-                  bool isDone = appointment['status'].toLowerCase() == 'done';
 
                   return Padding(
                     padding:
@@ -213,19 +211,41 @@ class _BookingscheduleClientState extends State<BookingscheduleClient> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Center(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                            if (isCanceled)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildPayButton(appointment, isCanceled),
-                                  _buildRescheduleButton(appointment,
-                                      isCanceled, isPending, isDone),
-                                  _buildCancelButton(
-                                      appointment, isCanceled, isDone),
+                                  Text(
+                                    'Cancellation Reason:',
+                                    style: GoogleFonts.abel(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    appointment['cancelReason'] ??
+                                        'No reason provided.',
+                                    style: GoogleFonts.abel(
+                                        fontSize: 14, color: Colors.black),
+                                  ),
                                 ],
-                              ),
-                            )
+                              )
+                            else
+                              Center(
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _buildPayButton(appointment, isCanceled),
+                                    _buildRescheduleButton(
+                                        appointment, isCanceled, false, false),
+                                    _buildCancelButton(appointment, isCanceled,
+                                        appointment['isDone'] ?? false),
+                                  ],
+                                ),
+                              )
                           ],
                         ),
                       ),

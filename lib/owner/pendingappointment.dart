@@ -69,7 +69,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
                 .doc(doc.id)
                 .update({
               'status': 'Canceled',
-              'declineReason': 'Failure to accept or decline appointment',
+              'cancelReason': 'Failure to accept or decline appointment',
             });
 
             // Increment missed count
@@ -150,7 +150,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
               .doc(doc.id)
               .update({
             'status': 'Canceled',
-            'declineReason': 'Failure to accept or decline appointment',
+            'cancelReason': 'Failure to accept or decline appointment',
           });
 
           missedCount += 1; // Increment missed count
@@ -332,7 +332,7 @@ class _PendingappointmentState extends State<Pendingappointment> {
           .doc(appointmentId)
           .update({
         'status': 'Canceled',
-        'declineReason': reason,
+        'cancelReason': reason,
         'updatedAt': FieldValue.serverTimestamp(), // Track updates
       });
 

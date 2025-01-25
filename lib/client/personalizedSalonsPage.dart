@@ -233,7 +233,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                   if (_matchedInteractionSalons.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
-                      "Salons Matching Preferences & Interactions",
+                      "Salons that Match Other User's Preference",
                       style: GoogleFonts.abel(
                         textStyle: const TextStyle(
                           fontSize: 16,

@@ -262,7 +262,7 @@ class _LoginState extends State<Login> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Your account has been banned. Please contact support for assistance.',
+                'Your account has been banned due to multiple appointment cancellations.',
               ),
             ),
           );

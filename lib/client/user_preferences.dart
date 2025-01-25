@@ -14,8 +14,8 @@ class UserPreferencesPage extends StatefulWidget {
 class _UserPreferencesPageState extends State<UserPreferencesPage> {
   String? selectedGender;
   List<String> preferredServices = [];
-  double preferredServiceRating = 4.0;
-  double preferredSalonRating = 4.0;
+  int preferredServiceRating = 4;
+  int preferredSalonRating = 4;
 
   final List<Map<String, dynamic>> genders = [
     {'label': 'Male', 'icon': Icons.male},
@@ -80,9 +80,13 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
           preferredServices =
               List<String>.from(userPreferences['preferred_services'] ?? []);
           preferredServiceRating =
-              (userPreferences['preferred_service_rating'] ?? 4.0).toDouble();
+              (userPreferences['preferred_service_rating'] ?? 4.0)
+                  .toDouble()
+                  .toInt();
           preferredSalonRating =
-              (userPreferences['preferred_salon_rating'] ?? 4.0).toDouble();
+              (userPreferences['preferred_salon_rating'] ?? 4.0)
+                  .toDouble()
+                  .toInt();
         });
       }
     } catch (e) {
@@ -127,6 +131,55 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
         SnackBar(content: Text('Failed to save preferences: $e')),
       );
     }
+  }
+
+  Widget _buildRatingButtons({
+    required String label,
+    required int selectedRating,
+    required ValueChanged<int> onRatingSelected,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.abel(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xff355E3B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(5, (index) {
+            int rating = index + 1;
+            return ElevatedButton(
+              onPressed: () {
+                onRatingSelected(rating);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selectedRating == rating
+                    ? const Color(0xff355E3B)
+                    : Colors.grey[300],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: Text(
+                '$rating',
+                style: GoogleFonts.abel(
+                  color:
+                      selectedRating == rating ? Colors.white : Colors.black54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
   }
 
   @override
@@ -234,52 +287,24 @@ class _UserPreferencesPageState extends State<UserPreferencesPage> {
                 }).toList(),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Preferred Service Rating',
-                style: GoogleFonts.abel(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xff355E3B),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Slider(
-                value: preferredServiceRating,
-                onChanged: (value) {
+              _buildRatingButtons(
+                label: 'Preferred Service Rating',
+                selectedRating: preferredServiceRating,
+                onRatingSelected: (rating) {
                   setState(() {
-                    preferredServiceRating = value;
+                    preferredServiceRating = rating;
                   });
                 },
-                divisions: 5,
-                min: 1.0,
-                max: 5.0,
-                label: preferredServiceRating.toString(),
-                activeColor: const Color(0xff355E3B),
-                inactiveColor: Colors.grey[300],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Preferred Salon Rating',
-                style: GoogleFonts.abel(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xff355E3B),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Slider(
-                value: preferredSalonRating,
-                onChanged: (value) {
+              _buildRatingButtons(
+                label: 'Preferred Salon Rating',
+                selectedRating: preferredSalonRating,
+                onRatingSelected: (rating) {
                   setState(() {
-                    preferredSalonRating = value;
+                    preferredSalonRating = rating;
                   });
                 },
-                divisions: 5,
-                min: 1.0,
-                max: 5.0,
-                label: preferredSalonRating.toString(),
-                activeColor: const Color(0xff355E3B),
-                inactiveColor: Colors.grey[300],
               ),
               const SizedBox(height: 80), // Spacing for floating button
             ],

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:salon_hub/pages/login_page.dart';
 
 class CancelReason extends StatefulWidget {
   final String salonId;
@@ -70,7 +71,7 @@ class _CancelReasonState extends State<CancelReason> {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // Update user cancellation logic for unpaid appointments
+      // Update user cancellation logic
       if (!widget.isPaid) {
         final userRef =
             FirebaseFirestore.instance.collection('users').doc(userId);
@@ -79,24 +80,22 @@ class _CancelReasonState extends State<CancelReason> {
         if (userSnapshot.exists) {
           final userData = userSnapshot.data();
           int cancelCount = userData?['cancelCount'] ?? 0;
+          Set<String> canceledSalonIds = Set<String>.from(
+            userData?['canceledSalonIds'] ?? [],
+          );
 
+          // Add current salonId to the set
+          canceledSalonIds.add(widget.salonId);
+
+          // Increment the cancel count
           cancelCount++;
 
-          // Check if the user should be warned or banned
-          if (cancelCount == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Warning: If you cancel one more unpaid appointment, your account will be banned.',
-                ),
-              ),
-            );
-          }
-
-          if (cancelCount >= 3) {
+          // Check if the user should be banned
+          if (canceledSalonIds.length >= 3) {
             // Ban the user
             await userRef.update({
               'cancelCount': cancelCount,
+              'canceledSalonIds': canceledSalonIds.toList(),
               'isBanned': true,
               'bannedAt': FieldValue.serverTimestamp(),
             });
@@ -104,35 +103,47 @@ class _CancelReasonState extends State<CancelReason> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'Your account has been banned due to excessive cancellations.',
+                  'Your account has been banned due to cancellations in 3 different salons.',
                 ),
               ),
             );
 
             // Log the user out and redirect to login
             await FirebaseAuth.instance.signOut();
-            if (mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/pages/login_page.dart',
-                (Route<dynamic> route) => false,
-              );
-            }
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const Login(),
+              ),
+            );
             return;
           } else {
-            // Increment the cancel count
-            await userRef.update({'cancelCount': cancelCount});
+            // Update canceled salon IDs and count
+            await userRef.update({
+              'cancelCount': cancelCount,
+              'canceledSalonIds': canceledSalonIds.toList(),
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Warning: You have canceled in ${canceledSalonIds.length} different salon(s). If you reach 3, you will be banned.',
+                ),
+              ),
+            );
           }
         } else {
-          // Initialize the user's cancellation count
+          // Initialize user's cancellation data
           await userRef.set({
             'cancelCount': 1,
+            'canceledSalonIds': [widget.salonId],
             'isBanned': false,
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Warning: If you cancel three consecutive unpaid appointments, your account will be banned.',
+                'Warning: If you cancel in 3 different salons, your account will be banned.',
               ),
             ),
           );
