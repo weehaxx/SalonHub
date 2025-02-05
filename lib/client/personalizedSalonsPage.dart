@@ -13,7 +13,7 @@ class PersonalizedSalonsPage extends StatefulWidget {
 
 class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
   List<Map<String, dynamic>> _matchedPreferenceSalons = [];
-  List<Map<String, dynamic>> _matchedInteractionSalons = [];
+  List<Map<String, dynamic>> _otherUserPreferenceSalons = [];
   bool _isLoading = true;
 
   @override
@@ -58,7 +58,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
           await FirebaseFirestore.instance.collection('user_interaction').get();
 
       final Set<String> matchedSalonIds = {};
-      final matchedInteractionSalons = <Map<String, dynamic>>[];
+      final otherUserPreferenceSalons = <Map<String, dynamic>>[];
 
       for (final interactionDoc in userInteractionsSnapshot.docs) {
         final interactionData = interactionDoc.data();
@@ -68,9 +68,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             List<dynamic>.from(interactionData['reviewed_services'] ?? []);
 
         // Match current user's preferences with bookmarked or reviewed salons
-        for (final bookmarkedSalon in bookmarkedSalons) {
-          matchedSalonIds.add(bookmarkedSalon);
-        }
+        matchedSalonIds.addAll(bookmarkedSalons);
 
         for (final reviewedService in reviewedServices) {
           final String serviceName = reviewedService['serviceName'] ?? '';
@@ -96,7 +94,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
         // Skip banned salons
         if (salonData['isBanned'] == true) continue;
 
-        // Calculate salon average rating from reviews
+        // Calculate salon average rating
         final reviewsSnapshot =
             await salonDoc.reference.collection('reviews').get();
         double totalSalonRating = 0;
@@ -107,7 +105,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             ? totalSalonRating / reviewsSnapshot.docs.length
             : 0;
 
-        // Fetch services and check if at least one matches the preferred services with a valid rating
+        // Fetch services and check if at least one matches preferred services
         final servicesSnapshot =
             await salonDoc.reference.collection('services').get();
 
@@ -120,57 +118,37 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
 
           if (preferredServices.contains(serviceName) &&
               (preferredGender == null || preferredGender == mainCategory)) {
-            // Calculate the average rating of the service
-            final serviceReviewsSnapshot = await salonDoc.reference
-                .collection('reviews')
-                .where('serviceId', isEqualTo: serviceDoc.id)
-                .get();
-
-            double totalServiceRating = 0;
-            for (final review in serviceReviewsSnapshot.docs) {
-              totalServiceRating += (review['rating'] ?? 0).toDouble();
-            }
-            final double averageServiceRating =
-                serviceReviewsSnapshot.docs.isNotEmpty
-                    ? totalServiceRating / serviceReviewsSnapshot.docs.length
-                    : 0;
-
-            // Check if the average service rating meets the user's preference
-            if (averageServiceRating >= preferredServiceRating &&
-                averageServiceRating < (preferredServiceRating + 1)) {
-              hasMatchingPreferredService = true;
-              break;
-            }
+            hasMatchingPreferredService = true;
           }
         }
 
-        // Check if the salon matches user's preferred rating and has a matching service
-        if (salonRating >= preferredSalonRating &&
-            salonRating < (preferredSalonRating + 1) &&
+        final salonInfo = {
+          'salon_id': salonId,
+          'salon_name': salonData['salon_name'] ?? 'Unknown Salon',
+          'address': salonData['address'] ?? 'No Address Available',
+          'image_url': salonData['image_url'] ?? '',
+          'rating': salonRating,
+          'open_time': salonData['open_time'] ?? 'Unknown',
+          'close_time': salonData['close_time'] ?? 'Unknown',
+          'specialization':
+              salonData['specialization'] ?? 'General', // Add specialization
+        };
+
+        // Add to matched preference salons if criteria match
+        if (salonRating >= preferredSalonRating ||
             hasMatchingPreferredService) {
-          final salonInfo = {
-            'salon_id': salonId,
-            'salon_name': salonData['salon_name'] ?? 'Unknown Salon',
-            'address': salonData['address'] ?? 'No Address Available',
-            'image_url': salonData['image_url'] ?? '',
-            'rating': salonRating,
-            'open_time': salonData['open_time'] ?? 'Unknown',
-            'close_time': salonData['close_time'] ?? 'Unknown',
-          };
-
-          // Add to matched preference salons
           matchedPreferenceSalons.add(salonInfo);
+        }
 
-          // Add to matched interaction salons if it matches the interaction
-          if (matchedSalonIds.contains(salonId)) {
-            matchedInteractionSalons.add(salonInfo);
-          }
+        // Check if salon matches other users' preferences
+        if (matchedSalonIds.contains(salonId)) {
+          otherUserPreferenceSalons.add(salonInfo);
         }
       }
 
       setState(() {
         _matchedPreferenceSalons = matchedPreferenceSalons;
-        _matchedInteractionSalons = matchedInteractionSalons;
+        _otherUserPreferenceSalons = otherUserPreferenceSalons;
         _isLoading = false;
       });
     } catch (e) {
@@ -204,7 +182,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 310,
+                      height: 340,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _matchedPreferenceSalons.length,
@@ -230,26 +208,26 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                       ),
                     ),
                   ],
-                  if (_matchedInteractionSalons.isNotEmpty) ...[
+                  if (_otherUserPreferenceSalons.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
-                      "Salons that Match Other User's Preference",
+                      "Salons Matching Other Users' Preferences",
                       style: GoogleFonts.abel(
                         textStyle: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                          color: Colors.orange,
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 310,
+                      height: 340,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        itemCount: _matchedInteractionSalons.length,
+                        itemCount: _otherUserPreferenceSalons.length,
                         itemBuilder: (context, index) {
-                          final salon = _matchedInteractionSalons[index];
+                          final salon = _otherUserPreferenceSalons[index];
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 8.0),
@@ -271,7 +249,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
                     ),
                   ],
                   if (_matchedPreferenceSalons.isEmpty &&
-                      _matchedInteractionSalons.isEmpty)
+                      _otherUserPreferenceSalons.isEmpty)
                     Center(
                       child: Text(
                         "No matched salons found.",

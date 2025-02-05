@@ -114,7 +114,27 @@ class _SignupOwnerState extends State<SignupOwner> {
         _ownerNameError.isEmpty &&
         _salonNameError.isEmpty) {
       try {
-        // Create a new user with Firebase Authentication
+        // Check if the email already exists in the stylists subcollection
+        final salonQuerySnapshot =
+            await FirebaseFirestore.instance.collection('salon').get();
+
+        for (final salonDoc in salonQuerySnapshot.docs) {
+          final stylistsSnapshot =
+              await salonDoc.reference.collection('stylists').get();
+          for (final stylistDoc in stylistsSnapshot.docs) {
+            final stylistData = stylistDoc.data();
+            if (stylistData['email'] == _emailController.text.trim()) {
+              // If the email exists, show an error and prevent registration
+              setState(() {
+                _emailError =
+                    'This email is already associated with a stylist and cannot register as an owner.';
+              });
+              return;
+            }
+          }
+        }
+
+        // If no existing stylist email, proceed with registration
         UserCredential userCredential = await FirebaseAuth.instance
             .createUserWithEmailAndPassword(
                 email: _emailController.text.trim(),

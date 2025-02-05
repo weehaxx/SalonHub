@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -156,6 +155,9 @@ class _SalonContainerState extends State<SalonContainer> {
   bool _isSalonOpen(String openTime, String closeTime) {
     final DateFormat dateFormat = DateFormat('h:mm a');
     try {
+      openTime = openTime.trim();
+      closeTime = closeTime.trim();
+
       DateTime now = DateTime.now();
       DateTime open = dateFormat.parse(openTime);
       DateTime close = dateFormat.parse(closeTime);
@@ -183,6 +185,13 @@ class _SalonContainerState extends State<SalonContainer> {
     final closeTime = widget.salon['close_time']?.toString() ?? 'Unknown';
     final imageUrl = widget.salon['image_url']?.toString();
     final distance = widget.distance?.toStringAsFixed(2) ?? 'Unknown';
+    final specialization =
+        widget.salon['specialization']?.toString() ?? 'General';
+
+    // Debugging logs
+    print('Salon document data: ${widget.salon}');
+    print('Specialization fetched: $specialization');
+    print('Open Time: $openTime, Close Time: $closeTime');
 
     bool isOpen = _isSalonOpen(openTime, closeTime);
 
@@ -217,14 +226,6 @@ class _SalonContainerState extends State<SalonContainer> {
                           height: 150,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset(
-                              'assets/images/default_salon.jpg',
-                              height: 150,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            );
-                          },
                         )
                       : Image.asset(
                           'assets/images/default_salon.jpg',
@@ -286,6 +287,17 @@ class _SalonContainerState extends State<SalonContainer> {
                       textStyle: const TextStyle(
                         color: Colors.black,
                         fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Specialization: $specialization',
+                    style: GoogleFonts.abel(
+                      textStyle: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
