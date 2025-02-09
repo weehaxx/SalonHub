@@ -26,8 +26,14 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
   }
 
   Future<void> _getUserLocation() async {
-    _userLocation = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+    LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high, // Equivalent to the previous setting
+      distanceFilter: 10, // Minimum distance (in meters) before an update
+    );
+
+    _userLocation =
+        await Geolocator.getCurrentPosition(locationSettings: locationSettings);
+
     print('Fetching client location...');
     print(
         'Client Location: Latitude ${_userLocation?.latitude}, Longitude ${_userLocation?.longitude}');
