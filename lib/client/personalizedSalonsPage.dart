@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:salon_hub/client/components/salon_container.dart';
+import 'package:geolocator/geolocator.dart';
 
 class PersonalizedSalonsPage extends StatefulWidget {
   const PersonalizedSalonsPage({Key? key}) : super(key: key);
@@ -15,11 +16,21 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
   List<Map<String, dynamic>> _matchedPreferenceSalons = [];
   List<Map<String, dynamic>> _otherUserPreferenceSalons = [];
   bool _isLoading = true;
+  Position? _userLocation;
 
   @override
   void initState() {
     super.initState();
     _fetchMatchedSalons();
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    _userLocation = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    print('Fetching client location...');
+    print(
+        'Client Location: Latitude ${_userLocation?.latitude}, Longitude ${_userLocation?.longitude}');
   }
 
   Future<void> _fetchMatchedSalons() async {
@@ -32,6 +43,7 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
       if (userId == null) return;
 
       // Fetch current user's preferences
+      print('Retrieving client preferences...');
       final userPreferenceDoc = await FirebaseFirestore.instance
           .collection('user_preferences')
           .doc(userId)
@@ -53,6 +65,11 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
       final List<String> preferredServices =
           List<String>.from(userPreferences['preferred_services'] ?? []);
 
+      print('Preferred Gender: $preferredGender');
+      print('Preferred Salon Rating: $preferredSalonRating');
+      print('Preferred Service Rating: $preferredServiceRating');
+      print('Preferred Services: ${preferredServices.join(", ")}');
+
       // Fetch all user interactions
       final userInteractionsSnapshot =
           await FirebaseFirestore.instance.collection('user_interaction').get();
@@ -67,7 +84,6 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
         final List<dynamic> reviewedServices =
             List<dynamic>.from(interactionData['reviewed_services'] ?? []);
 
-        // Match current user's preferences with bookmarked or reviewed salons
         matchedSalonIds.addAll(bookmarkedSalons);
 
         for (final reviewedService in reviewedServices) {
@@ -81,7 +97,6 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
         }
       }
 
-      // Fetch salons
       final salonSnapshot =
           await FirebaseFirestore.instance.collection('salon').get();
 
@@ -91,10 +106,8 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
         final salonData = salonDoc.data();
         final salonId = salonDoc.id;
 
-        // Skip banned salons
         if (salonData['isBanned'] == true) continue;
 
-        // Calculate salon average rating
         final reviewsSnapshot =
             await salonDoc.reference.collection('reviews').get();
         double totalSalonRating = 0;
@@ -105,7 +118,6 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
             ? totalSalonRating / reviewsSnapshot.docs.length
             : 0;
 
-        // Fetch services and check if at least one matches preferred services
         final servicesSnapshot =
             await salonDoc.reference.collection('services').get();
 
@@ -130,20 +142,55 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
           'rating': salonRating,
           'open_time': salonData['open_time'] ?? 'Unknown',
           'close_time': salonData['close_time'] ?? 'Unknown',
-          'specialization':
-              salonData['specialization'] ?? 'General', // Add specialization
+          'specialization': salonData['specialization'] ?? 'General',
+          'latitude': salonData['latitude'] ?? 0.0,
+          'longitude': salonData['longitude'] ?? 0.0,
         };
 
-        // Add to matched preference salons if criteria match
         if (salonRating >= preferredSalonRating ||
             hasMatchingPreferredService) {
           matchedPreferenceSalons.add(salonInfo);
         }
 
-        // Check if salon matches other users' preferences
         if (matchedSalonIds.contains(salonId)) {
           otherUserPreferenceSalons.add(salonInfo);
         }
+      }
+
+      print('Identifying closer salon locations using KNN...');
+      print('Total salons retrieved: ${matchedPreferenceSalons.length}');
+
+      if (_userLocation != null) {
+        matchedPreferenceSalons.sort((a, b) {
+          final distanceA = _calculateDistance(_userLocation!.latitude,
+              _userLocation!.longitude, a['latitude'], a['longitude']);
+          final distanceB = _calculateDistance(_userLocation!.latitude,
+              _userLocation!.longitude, b['latitude'], b['longitude']);
+          return distanceA.compareTo(distanceB);
+        });
+
+        print('KNN Results: Recommended Salons Based on Client Preferences');
+        for (int i = 0; i < 3 && i < matchedPreferenceSalons.length; i++) {
+          final salon = matchedPreferenceSalons[i];
+          final distance = _calculateDistance(
+            _userLocation!.latitude,
+            _userLocation!.longitude,
+            salon['latitude'],
+            salon['longitude'],
+          ).toStringAsFixed(2);
+
+          print(
+              'Rank ${i + 1}: ${salon['salon_name']} | Distance: $distance km');
+        }
+      }
+
+      if (_otherUserPreferenceSalons.isNotEmpty) {
+        print('Listing salons that align with other clients’ preferences:');
+        for (final salon in _otherUserPreferenceSalons) {
+          print('- ${salon['salon_name']} | Rating: ${salon['rating']}');
+        }
+      } else {
+        print('No salons found that match other clients’ preferences.');
       }
 
       setState(() {
@@ -157,6 +204,12 @@ class _PersonalizedSalonsPageState extends State<PersonalizedSalonsPage> {
         _isLoading = false;
       });
     }
+  }
+
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    final distance = Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
+    return distance / 1000; // Convert to kilometers
   }
 
   @override
